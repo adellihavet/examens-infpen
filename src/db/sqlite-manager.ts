@@ -75,7 +75,7 @@ export interface ExamSubject {
   content: string; // Arabic exam subject text with parts (الجزء الأول، الجزء الثاني، الوضعية الإدماجية)
   gradingScale: string; // Detailed grading rubric
   instructions: string;
-  status: 'draft' | 'approved' | 'final';
+  status: 'draft' | 'approved' | 'final' | 'reserve';
 }
 
 export interface AuditLog {

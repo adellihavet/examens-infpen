@@ -33,11 +33,10 @@ export const Header: React.FC<HeaderProps> = ({
   const navItems = [
     { id: 'dashboard', label: 'لوحة القيادة' },
     { id: 'conduct', label: 'قسم الإجراء' },
-    { id: 'exam_maker', label: 'نموذج موضوع الامتحان (Word)' },
+    { id: 'exam_maker', label: 'صياغة مواضيع الامتحان وبنك الأسئلة' },
     { id: 'pedagogical_grades', label: 'التقييم البيداغوجي والمذكرات' },
     { id: 'anonymat', label: 'التشفير ورصد النقاط المغفلة' },
-    { id: 'deliberation', label: 'المداولات ومحاضر التخرج' },
-    { id: 'bank', label: 'بنك المواضيع' }
+    { id: 'deliberation', label: 'المداولات ومحاضر التخرج' }
   ];
 
   return (

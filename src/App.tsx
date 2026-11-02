@@ -212,9 +212,10 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'exam_maker' && (
+        {(activeTab === 'exam_maker' || activeTab === 'bank') && (
           <OfficialExamTemplateMaker
             dbState={dbState}
+            initialTab={activeTab === 'bank' ? 'bank' : 'editor'}
             onUpdateSubjects={handleUpdateSubjects}
             onAddAuditLog={addAuditLog}
           />
@@ -245,14 +246,6 @@ export default function App() {
             onUpdateSession={handleUpdateSessionDecoding}
             onAddAuditLog={addAuditLog}
             onUpdateCandidates={handleUpdateCandidates}
-          />
-        )}
-
-        {activeTab === 'bank' && (
-          <ExamBankView
-            dbState={dbState}
-            onUpdateSubjects={handleUpdateSubjects}
-            onAddAuditLog={addAuditLog}
           />
         )}
       </main>
