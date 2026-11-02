@@ -5,6 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    base: '/examens-infpen/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
