@@ -3,14 +3,10 @@ import {
   FileEdit, 
   Printer, 
   Save, 
-  Copy, 
-  Check, 
-  Sparkles, 
   FileText, 
   Clock, 
   Scale, 
   Calendar, 
-  Layers, 
   AlertCircle,
   Eye,
   RotateCcw,
@@ -29,14 +25,10 @@ import {
   Table as TableIcon,
   Minus,
   Download,
-  Trash2,
   BookOpen,
   Plus,
-  ShieldCheck,
   CheckCircle2,
   FileCheck2,
-  Lock,
-  Archive,
   Search,
   Sliders,
   Type
@@ -50,10 +42,36 @@ import { triggerPrintWithDynamicTitle } from '../utils/print-utils';
 
 interface OfficialExamTemplateMakerProps {
   dbState: AppDatabaseState;
-  initialTab?: 'editor' | 'rubric' | 'bank' | 'pv_tirage';
+  initialTab?: 'editor' | 'rubric' | 'bank';
   onUpdateSubjects?: (subjects: ExamSubject[]) => void;
   onAddAuditLog: (action: string, details: string, severity?: 'info' | 'warning' | 'security') => void;
 }
+
+const DEFAULT_EXAM_INITIAL_HTML = `
+  <div style="font-family: 'Simplified Arabic', sans-serif; font-size: 14pt; line-height: 1.8; text-align: justify;">
+    <p><strong><u>الجزء الأول: الوضعية الإشكالية المهنية (12 نقطة)</u></strong></p>
+    <p>في إطار ممارسة المهام الإدارية والبيداغوجية، واستناداً إلى أحكام التشريع المدرسي والتنظيم الإداري المعمول به في قطاع التربية الوطنية:</p>
+    <p>لوحظ في إحدى المؤسسات التعليمية حدوث تباين في تفسير الصلاحيات المخولة لأعضاء الفريق الإداري والتربوي، مما أدى إلى تعثر في التنسيق الداخلي وسير العمل اليومي بالمؤسسة.</p>
+    <br/>
+    <p><strong>المطلوب:</strong></p>
+    <ol style="margin-right: 20px;">
+      <li>حدد بدقة السند القانوني والمرجعي المنظم لمهام وصلاحيات الفريق الإداري والتربوي. <em>(04 نقاط)</em></li>
+      <li>بين الآليات التنظيمية والبيداغوجية الكفيلة بتفعيل التنسيق والتشاور المستمر داخل المؤسسة. <em>(04 نقاط)</em></li>
+      <li>اقترح خطة عمل إجرائية عملية لمعالجة هذا الخلل وضمان السير الحسن للمرفق العام المدرسي. <em>(04 نقاط)</em></li>
+    </ol>
+    <br/>
+    <hr style="border: none; border-top: 1px dashed #666; margin: 15px 0;" />
+    <br/>
+    <p><strong><u>الجزء الثاني: الوضعية الإدماجية المركبة (08 نقاط)</u></strong></p>
+    <p><strong>السند:</strong></p>
+    <blockquote style="margin: 10px 20px; padding: 10px; background-color: #f8fafc; border-right: 4px solid #0f172a; font-style: italic;">
+      « يعد التقويم والمتابعة المستمرة ركيزة أساسية لتحسين المردود المدرسي والارتقاء بالأداء البيداغوجي والإداري. »
+    </blockquote>
+    <p><strong>التعليمة:</strong></p>
+    <p>انطلاقاً من السند ومكتسباتك القبلية خلال فترة التكوين بالمعهد الوطني لتكوين موظفي قطاع التربية الوطنية:</p>
+    <p>حرر تقريراً تحليلياً مفصلاً تُبرز فيه خطوات تنفيذ عملية تقويمية شاملة بالمؤسسة، مبرزاً المعايير والمؤشرات المعتمدة، وكيفية توظيف مخرجات التقويم في معالجة النقائص وتطوير الأداء الجماعي.</p>
+  </div>
+`;
 
 export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps> = ({
   dbState,
@@ -67,8 +85,13 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
   const rankNumericCode = getRankNumericCode(currentSpecialtyId);
   const sessionModules = dbState.modules.filter(m => m.specialtyId === currentSpecialtyId);
 
-  // Sub-tabs navigation
-  const [activeSubTab, setActiveSubTab] = useState<'editor' | 'rubric' | 'bank' | 'pv_tirage'>(initialTab);
+  // Sub-tabs navigation (Strictly 3 tabs: editor, rubric, bank)
+  const [activeSubTab, setActiveSubTab] = useState<'editor' | 'rubric' | 'bank'>(
+    initialTab === 'bank' ? 'bank' : initialTab === 'rubric' ? 'rubric' : 'editor'
+  );
+
+  // Dedicated Print Target State ('editor' or 'rubric')
+  const [printTargetDoc, setPrintTargetDoc] = useState<'editor' | 'rubric'>('editor');
 
   // Exam Identification & Form states
   const [selectedModuleId, setSelectedModuleId] = useState<string>(sessionModules[0]?.id || '');
@@ -94,6 +117,9 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
   const [fontSize, setFontSize] = useState<string>('14pt');
   const [textColor, setTextColor] = useState<string>('#000000');
   const [highlightColor, setHighlightColor] = useState<string>('transparent');
+
+  // HTML content of the Word canvas
+  const [editorContent, setEditorContent] = useState<string>(DEFAULT_EXAM_INITIAL_HTML);
 
   // Toast notifications
   const [notification, setNotification] = useState<{ type: 'success' | 'warning' | 'info'; message: string } | null>(null);
@@ -134,34 +160,17 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
     }
   }, [notification]);
 
+  // Keep printTargetDoc aligned with subtabs
+  useEffect(() => {
+    if (activeSubTab === 'editor' || activeSubTab === 'rubric') {
+      setPrintTargetDoc(activeSubTab);
+    }
+  }, [activeSubTab]);
+
   // Initial Content for the Canvas
   useEffect(() => {
     if (editorRef.current && !editorRef.current.innerHTML.trim()) {
-      editorRef.current.innerHTML = `
-        <div style="font-family: 'Simplified Arabic', sans-serif; font-size: 14pt; line-height: 1.8; text-align: justify;">
-          <p><strong><u>الجزء الأول: الوضعية الإشكالية المهنية (12 نقطة)</u></strong></p>
-          <p>في إطار ممارسة المهام الإدارية والبيداغوجية، واستناداً إلى أحكام التشريع المدرسي والتنظيم الإداري المعمول به في قطاع التربية الوطنية:</p>
-          <p>لوحظ في إحدى المؤسسات التعليمية حدوث تباين في تفسير الصلاحيات المخولة لأعضاء الفريق الإداري والتربوي، مما أدى إلى تعثر في التنسيق الداخلي وسير العمل اليومي بالمؤسسة.</p>
-          <br/>
-          <p><strong>المطلوب:</strong></p>
-          <ol style="margin-right: 20px;">
-            <li>حدد بدقة السند القانوني والمرجعي المنظم لمهام وصلاحيات الفريق الإداري والتربوي. <em>(04 نقاط)</em></li>
-            <li>بين الآليات التنظيمية والبيداغوجية الكفيلة بتفعيل التنسيق والتشاور المستمر داخل المؤسسة. <em>(04 نقاط)</em></li>
-            <li>اقترح خطة عمل إجرائية عملية لمعالجة هذا الخلل وضمان السير الحسن للمرفق العام المدرسي. <em>(04 نقاط)</em></li>
-          </ol>
-          <br/>
-          <hr style="border: none; border-top: 1px dashed #666; margin: 15px 0;" />
-          <br/>
-          <p><strong><u>الجزء الثاني: الوضعية الإدماجية المركبة (08 نقاط)</u></strong></p>
-          <p><strong>السند:</strong></p>
-          <blockquote style="margin: 10px 20px; padding: 10px; background-color: #f8fafc; border-right: 4px solid #0f172a; font-style: italic;">
-            « يعد التقويم والمتابعة المستمرة ركيزة أساسية لتحسين المردود المدرسي والارتقاء بالأداء البيداغوجي والإداري. »
-          </blockquote>
-          <p><strong>التعليمة:</strong></p>
-          <p>انطلاقاً من السند ومكتسباتك القبلية خلال فترة التكوين بالمعهد الوطني لتكوين موظفي قطاع التربية الوطنية:</p>
-          <p>حرر تقريراً تحليلياً مفصلاً تُبرز فيه خطوات تنفيذ عملية تقويمية شاملة بالمؤسسة، مبرزاً المعايير والمؤشرات المعتمدة، وكيفية توظيف مخرجات التقويم في معالجة النقائص وتطوير الأداء الجماعي.</p>
-        </div>
-      `;
+      editorRef.current.innerHTML = editorContent;
     }
   }, []);
 
@@ -179,6 +188,7 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
     document.execCommand(cmd, false, val);
     if (editorRef.current) {
       editorRef.current.focus();
+      setEditorContent(editorRef.current.innerHTML);
     }
   };
 
@@ -193,6 +203,7 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
         const range = selection.getRangeAt(0);
         span.appendChild(range.extractContents());
         range.insertNode(span);
+        setEditorContent(editorRef.current.innerHTML);
       }
     }
   };
@@ -211,37 +222,38 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
     const reader = new FileReader();
     reader.onload = (evt) => {
       const dataUrl = evt.target?.result as string;
-      if (dataUrl) {
-        if (editorRef.current) {
-          editorRef.current.focus();
-          const imgHtml = `
-            <div style="text-align: center; margin: 15px 0;">
-              <img src="${dataUrl}" alt="سند مصور" style="max-width: 90%; max-height: 350px; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: inline-block;" />
-              <div style="font-size: 11pt; color: #475569; margin-top: 4px;">شكل توضيحي / سند مصور للاختبار</div>
-            </div>
-          `;
-          document.execCommand('insertHTML', false, imgHtml);
-          setNotification({ type: 'success', message: 'تم إدراج الصورة بنجاح داخل ورقة الموضوع!' });
-        }
+      if (dataUrl && editorRef.current) {
+        editorRef.current.focus();
+        const imgHtml = `
+          <div style="text-align: center; margin: 15px 0;">
+            <img src="${dataUrl}" alt="سند مصور" style="max-width: 90%; max-height: 350px; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: inline-block;" />
+            <div style="font-size: 11pt; color: #475569; margin-top: 4px;">شكل توضيحي / سند مصور للاختبار</div>
+          </div>
+        `;
+        document.execCommand('insertHTML', false, imgHtml);
+        setEditorContent(editorRef.current.innerHTML);
+        setNotification({ type: 'success', message: 'تم إدراج الصورة بنجاح داخل ورقة الموضوع!' });
       }
     };
     reader.readAsDataURL(file);
     e.target.value = '';
   };
 
-  // Insert Table
-  const handleInsertTable = (rows: number = 3, cols: number = 3) => {
+  // Insert Table: STRICTLY 3x3 ONLY (arbitrary creation prevented as required)
+  const handleInsertTable = () => {
+    const fixedRows = 3;
+    const fixedCols = 3;
     if (!editorRef.current) return;
     editorRef.current.focus();
 
     let tableHtml = `<table style="width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13pt; text-align: right;" border="1"><thead><tr style="background-color: #f1f5f9;">`;
-    for (let c = 0; c < cols; c++) {
+    for (let c = 0; c < fixedCols; c++) {
       tableHtml += `<th style="border: 1px solid #000; padding: 6px 10px;">عنوان العمود ${c + 1}</th>`;
     }
     tableHtml += `</tr></thead><tbody>`;
-    for (let r = 0; r < rows; r++) {
+    for (let r = 0; r < fixedRows; r++) {
       tableHtml += `<tr>`;
-      for (let c = 0; c < cols; c++) {
+      for (let c = 0; c < fixedCols; c++) {
         tableHtml += `<td style="border: 1px solid #000; padding: 6px 10px;">خلية ${r + 1}-${c + 1}</td>`;
       }
       tableHtml += `</tr>`;
@@ -249,7 +261,10 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
     tableHtml += `</tbody></table><p><br/></p>`;
 
     document.execCommand('insertHTML', false, tableHtml);
-    setNotification({ type: 'success', message: `تم إدراج جدول (${rows}×${cols}) بنجاح!` });
+    if (editorRef.current) {
+      setEditorContent(editorRef.current.innerHTML);
+    }
+    setNotification({ type: 'success', message: 'تم إدراج جدول رسمي ثابت (3×3) بنجاح!' });
   };
 
   // Insert Quick Snippets
@@ -288,20 +303,25 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
     }
 
     document.execCommand('insertHTML', false, snippetHtml);
+    if (editorRef.current) {
+      setEditorContent(editorRef.current.innerHTML);
+    }
     setNotification({ type: 'info', message: 'تم إدراج القالب النموذجي في موقع المؤشر.' });
   };
 
   // Clean Paste Handler: handles text/html pasted directly from Word
-  const handlePasteFromWord = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    // Standard clipboard paste preserves html formatting
+  const handlePasteFromWord = () => {
+    setTimeout(() => {
+      if (editorRef.current) {
+        setEditorContent(editorRef.current.innerHTML);
+      }
+    }, 50);
     setNotification({ type: 'info', message: 'تم لصق المحتوى مع الاحتفاظ بتنسيقات Word الأصلية.' });
   };
 
   // Export Native Word Document (.doc / .docx compatible)
   const handleExportWord = () => {
-    if (!editorRef.current) return;
-
-    const contentHtml = editorRef.current.innerHTML;
+    const contentHtml = editorRef.current?.innerHTML || editorContent;
     const headerHtml = `
       <div style="text-align: center; font-family: 'Simplified Arabic', Arial; margin-bottom: 20px;">
         <p style="font-size: 13pt; margin: 0; font-weight: bold;">${INSTITUTION.republic}</p>
@@ -386,15 +406,26 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
     setNotification({ type: 'success', message: '✓ تم تصدير ملف Microsoft Word الأصلي بنجاح!' });
   };
 
-  // Direct Print with Dynamic Document Title
-  const handlePrint = () => {
-    const docTitle = `موضوع_امتحان_${selectedModule?.titleAr.replace(/\s+/g, '_')}_${currentRank.titleAr.replace(/\s+/g, '_')}_${formatArabicDate(new Date())}`;
-    triggerPrintWithDynamicTitle(docTitle);
+  // Direct Print with Dynamic Document Title (Guarantees visible output via #printable-official-document)
+  const handlePrint = (target?: 'editor' | 'rubric') => {
+    const docType = target || (activeSubTab === 'rubric' ? 'rubric' : 'editor');
+    setPrintTargetDoc(docType);
+    if (editorRef.current) {
+      setEditorContent(editorRef.current.innerHTML);
+    }
+    const docTitle = docType === 'rubric'
+      ? `عناصر_الإجابة_والتنقيط_مقياس_${selectedModule?.titleAr.replace(/\s+/g, '_')}_${formatArabicDate(new Date())}`
+      : `موضوع_امتحان_${selectedModule?.titleAr.replace(/\s+/g, '_')}_${currentRank.titleAr.replace(/\s+/g, '_')}_${formatArabicDate(new Date())}`;
+
+    // Small delay ensures react finishes syncing DOM to the dedicated print container
+    setTimeout(() => {
+      triggerPrintWithDynamicTitle(docTitle);
+    }, 60);
   };
 
   // Save Subject to Question Bank
   const handleSaveToBank = () => {
-    const content = editorRef.current?.innerHTML || '';
+    const content = editorRef.current?.innerHTML || editorContent;
     if (!content.trim()) {
       setNotification({ type: 'warning', message: 'يرجى كتابة أو لصق محتوى الموضوع أولاً!' });
       return;
@@ -442,10 +473,12 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
     if (subj.gradingScale) {
       setCorrigéContent(subj.gradingScale);
     }
+    setEditorContent(subj.content);
     if (editorRef.current) {
       editorRef.current.innerHTML = subj.content;
     }
     setActiveSubTab('editor');
+    setPrintTargetDoc('editor');
     setNotification({ type: 'info', message: `تم استدعاء وتحميل: ${subj.title} داخل مساحة العمل.` });
   };
 
@@ -464,7 +497,7 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
 
   return (
     <div className="space-y-6 pb-20">
-      {/* Dynamic Toast */}
+      {/* Dynamic Toast (Screen only) */}
       {notification && (
         <div className={`p-4 rounded-xl text-xs font-bold border flex items-center justify-between shadow-xs no-print ${
           notification.type === 'success'
@@ -476,14 +509,14 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
           <div className="flex items-center gap-2">
             {notification.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-700" />}
             {notification.type === 'warning' && <AlertCircle className="w-4 h-4 text-amber-700" />}
-            {notification.type === 'info' && <Sparkles className="w-4 h-4 text-blue-700" />}
+            {notification.type === 'info' && <Eye className="w-4 h-4 text-blue-700" />}
             <span>{notification.message}</span>
           </div>
           <button onClick={() => setNotification(null)} className="text-slate-600 hover:text-slate-900 px-2 font-black cursor-pointer">✕</button>
         </div>
       )}
 
-      {/* Top Banner */}
+      {/* Top Banner (Screen only) */}
       <div className="bg-slate-900 text-white rounded-2xl p-6 border border-slate-800 shadow-xl relative overflow-hidden no-print">
         <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div className="space-y-2">
@@ -493,7 +526,7 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
                 <span>محرر مواضيع الامتحانات الوزارية (Word Canvas & Question Bank)</span>
               </span>
               <span className="bg-slate-800 text-slate-300 text-[11px] px-2.5 py-0.5 rounded-full font-mono border border-slate-700">
-                ترويسة وزارية موحدة • خالية من أي لوغو • مطابقة للمعايير الوطنية
+                ترويسة وزارية موحدة • خالية من أي لوغو • طباعة رسمية مطابقة (A4)
               </span>
             </div>
 
@@ -501,7 +534,7 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
               صياغة ونمذجة مواضيع الامتحانات وبنك الأسئلة
             </h1>
             <p className="text-xs md:text-sm text-slate-300 max-w-3xl leading-relaxed">
-              مساحة عمل كأنها صفحة Microsoft Word حقيقية: لصق الموضوع المستلم من الأستاذ، تنسيق الخطوط والمقاييس، إدراج الصور والرسوم البيانية والجداول، مع التصدير المباشر لملف Word وطباعة ورقة الامتحان الرسمية (A4 / A3).
+              مساحة عمل كأنها صفحة Microsoft Word حقيقية: لصق الموضوع المستلم من الأستاذ، تنسيق الخطوط والمقاييس، إدراج الصور والرسوم البيانية وجدول 3×3 المعتمد، مع التصدير المباشر لملف Word والطباعة الرسمية الصافية دون أي صفحات بيضاء.
             </p>
           </div>
 
@@ -515,7 +548,7 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
             </button>
 
             <button
-              onClick={handlePrint}
+              onClick={() => handlePrint('editor')}
               className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 shadow-md transition cursor-pointer"
             >
               <Printer className="w-4 h-4" />
@@ -525,7 +558,7 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
         </div>
       </div>
 
-      {/* Sub-Tabs Bar */}
+      {/* Sub-Tabs Bar: EXACTLY 3 TABS (Screen only - 'pv_tirage' has been removed) */}
       <div className="bg-white rounded-2xl border border-slate-200 p-2 shadow-xs flex flex-wrap gap-2 no-print">
         <button
           onClick={() => setActiveSubTab('editor')}
@@ -562,27 +595,15 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
           <BookOpen className="w-4 h-4 text-blue-400" />
           <span>3. بنك مواضيع الامتحانات ({dbState.examSubjects.length})</span>
         </button>
-
-        <button
-          onClick={() => setActiveSubTab('pv_tirage')}
-          className={`flex-1 min-w-[180px] py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
-            activeSubTab === 'pv_tirage'
-              ? 'bg-slate-900 text-white shadow-xs'
-              : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
-          }`}
-        >
-          <ShieldCheck className="w-4 h-4 text-amber-400" />
-          <span>4. محضر سحب وتشميع المواضيع (PV de Tirage)</span>
-        </button>
       </div>
 
       {/* ========================================================================= */}
       {/* SUB-TAB 1: WORD-LIKE WORKSPACE CANVAS (مساحة عمل وورد لموضوع الامتحان)      */}
       {/* ========================================================================= */}
       {activeSubTab === 'editor' && (
-        <div className="space-y-4">
-          {/* Exam Identification Setup Strip (Hidden on Print) */}
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4 no-print">
+        <div className="space-y-4 no-print">
+          {/* Exam Identification Setup Strip */}
+          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
               <span className="font-bold text-xs text-slate-800 flex items-center gap-2 font-cairo">
                 <Sliders className="w-4 h-4 text-orange-600" />
@@ -742,7 +763,7 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
           {/* ========================================================================= */}
           {/* THE MICROSOFT WORD RIBBON TOOLBAR (شريط أدوات وورد الاحترافي)               */}
           {/* ========================================================================= */}
-          <div className="bg-slate-900 text-white rounded-2xl p-3 border border-slate-800 shadow-lg sticky top-16 z-20 no-print">
+          <div className="bg-slate-900 text-white rounded-2xl p-3 border border-slate-800 shadow-lg sticky top-16 z-20">
             <div className="flex flex-wrap items-center gap-1.5 md:gap-2 text-xs">
               {/* Font Family */}
               <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-lg">
@@ -906,7 +927,7 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
 
               <div className="h-5 w-px bg-slate-700 mx-0.5"></div>
 
-              {/* Insertions: Image, Table, Horizontal Line */}
+              {/* Insertions: Image, Table (STRICTLY 3x3 ONLY), Horizontal Line */}
               <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-lg">
                 {/* Upload Image Button */}
                 <button
@@ -926,15 +947,15 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
                   className="hidden"
                 />
 
-                {/* Insert Table Button */}
+                {/* STRICT 3x3 Table Insertion Only (No custom table creation) */}
                 <button
                   type="button"
-                  title="إدراج جدول 3×3"
-                  onClick={() => handleInsertTable(3, 3)}
-                  className="flex items-center gap-1 px-2 py-1 bg-blue-700 hover:bg-blue-600 rounded text-white text-[11px] font-bold transition cursor-pointer"
+                  title="إدراج جدول رسمي ثابت (3×3) فقط"
+                  onClick={handleInsertTable}
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-700 hover:bg-blue-600 rounded text-white text-[11px] font-bold transition cursor-pointer"
                 >
                   <TableIcon className="w-3.5 h-3.5" />
-                  <span>جدول</span>
+                  <span>جدول (3×3)</span>
                 </button>
 
                 {/* Insert Line */}
@@ -989,12 +1010,12 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
           </div>
 
           {/* ========================================================================= */}
-          {/* THE REALISTIC A4 WORD PAGE CANVAS (ورقة موضوع الامتحان A4 الحقيقية)        */}
+          {/* THE REALISTIC A4 WORD PAGE CANVAS (Screen View)                           */}
           {/* Strict Rule: NO BLACK LOGO ON EXAM QUESTION PAPER! Pure Ministerial Text   */}
           {/* ========================================================================= */}
-          <div className="py-6 flex justify-center bg-slate-200/70 rounded-2xl border border-slate-300 overflow-x-auto print:bg-white print:border-none print:p-0">
+          <div className="py-6 flex justify-center bg-slate-200/70 rounded-2xl border border-slate-300 overflow-x-auto">
             <div 
-              className={`bg-white text-black shadow-2xl border border-slate-300 font-simplified-arabic p-10 md:p-12 relative flex flex-col justify-between print:shadow-none print:border-none print:p-0 ${
+              className={`bg-white text-black shadow-2xl border border-slate-300 font-simplified-arabic p-10 md:p-12 relative flex flex-col justify-between ${
                 paperFormat === 'A3' ? 'w-[297mm] min-h-[420mm]' : 'w-[210mm] min-h-[297mm]'
               }`}
               dir="rtl"
@@ -1073,6 +1094,7 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
                   ref={editorRef}
                   contentEditable
                   suppressContentEditableWarning
+                  onInput={(e) => setEditorContent(e.currentTarget.innerHTML)}
                   onPaste={handlePasteFromWord}
                   className="min-h-[480px] p-2 focus:outline-none focus:ring-1 focus:ring-orange-300 rounded text-justify text-xs md:text-sm text-black leading-loose"
                   style={{
@@ -1100,7 +1122,7 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
       {/* SUB-TAB 2: CORRIGE-TYPE ET BAREME (عناصر الإجابة وسلم التنقيط النموذجي)     */}
       {/* ========================================================================= */}
       {activeSubTab === 'rubric' && (
-        <div className="space-y-6">
+        <div className="space-y-6 no-print">
           <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
@@ -1115,10 +1137,7 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    const docTitle = `عناصر_الإجابة_والتنقيط_مقياس_${selectedModule?.titleAr.replace(/\s+/g, '_')}_${formatArabicDate(new Date())}`;
-                    triggerPrintWithDynamicTitle(docTitle);
-                  }}
+                  onClick={() => handlePrint('rubric')}
                   className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md transition cursor-pointer"
                 >
                   <Printer className="w-4 h-4" />
@@ -1158,7 +1177,7 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
       {/* SUB-TAB 3: QUESTION BANK (بنك مواضيع الامتحانات)                           */}
       {/* ========================================================================= */}
       {activeSubTab === 'bank' && (
-        <div className="space-y-6">
+        <div className="space-y-6 no-print">
           <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
@@ -1241,7 +1260,7 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
                         type="button"
                         onClick={() => {
                           handleLoadSubjectFromBank(subj);
-                          setTimeout(() => handlePrint(), 300);
+                          setTimeout(() => handlePrint('editor'), 250);
                         }}
                         className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer"
                       >
@@ -1258,89 +1277,181 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
       )}
 
       {/* ========================================================================= */}
-      {/* SUB-TAB 4: PV DE TIRAGE ET DE MISE SOUS PLI (محضر سحب وتشميع المواضيع)     */}
+      {/* DEDICATED OFFICIAL PRINT CONTAINER (#printable-official-document)          */}
+      {/* ISOLATED & VISIBLE ONLY DURING PHYSICAL PRINTING (@media print)            */}
+      {/* This guarantees 100% visible, crisp output with ZERO blank pages           */}
       {/* ========================================================================= */}
-      {activeSubTab === 'pv_tirage' && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4 no-print">
-              <div>
-                <h3 className="text-base font-bold text-slate-900 font-cairo">
-                  محضر سحب وتشميع مواضيع الاختبارات (PV de Tirage et de Mise sous Pli)
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  وثيقة رسمية تثبت سحب أوراق الامتحان بعدد المترشحين والقاعات وتشميعها بالشمع الأحمر قبل الاختبارات.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const docTitle = `محضر_سحب_وتشميع_مواضيع_${selectedModule?.titleAr.replace(/\s+/g, '_')}_${formatArabicDate(new Date())}`;
-                  triggerPrintWithDynamicTitle(docTitle);
-                }}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
-              >
-                <Printer className="w-4 h-4 text-amber-300" />
-                <span>طباعة محضر السحب والتشميع</span>
-              </button>
+      <div 
+        id="printable-official-document" 
+        className="hidden print:block font-simplified-arabic text-black bg-white p-6 print-document"
+      >
+        {printTargetDoc === 'rubric' ? (
+          /* Official Rubric Document (عناصر الإجابة وسلم التنقيط النموذجي المفصل) */
+          <div className="space-y-4">
+            {/* Ministerial Text Header (Strictly pure text - NO LOGO) */}
+            <div className="text-center border-b-2 border-black pb-3 mb-4 leading-snug">
+              <h2 className="font-bold text-xs md:text-sm text-black leading-tight">
+                {INSTITUTION.republic}
+              </h2>
+              <h3 className="font-bold text-[11px] md:text-xs text-slate-800 leading-tight mt-0.5">
+                {INSTITUTION.ministry}
+              </h3>
+              <h3 className="font-black text-xs md:text-sm text-black mt-1 leading-tight">
+                {INSTITUTION.name}
+              </h3>
+              <p className="text-[10px] md:text-[11px] text-slate-700 font-semibold mt-0.5">
+                {INSTITUTION.deputyDirectorate} • {INSTITUTION.service}
+              </p>
             </div>
 
-            {/* Printable Minutes */}
-            <div className="max-w-[800px] mx-auto p-8 border-2 border-slate-900 rounded-xl bg-white font-simplified-arabic text-black">
-              {/* Ministerial Text Header (NO LOGO) */}
-              <div className="text-center border-b-2 border-black pb-3 mb-4 leading-snug">
-                <h2 className="font-bold text-xs text-black leading-tight">{INSTITUTION.republic}</h2>
-                <h3 className="font-bold text-[11px] text-slate-800 leading-tight">{INSTITUTION.ministry}</h3>
-                <h3 className="font-black text-xs text-black mt-0.5 leading-tight">{INSTITUTION.name}</h3>
-                <p className="text-[10px] text-slate-700 font-semibold">{INSTITUTION.deputyDirectorate} • {INSTITUTION.service}</p>
-              </div>
+            {/* Title Banner */}
+            <div className="text-center my-3">
+              <h1 className="text-base font-black border-2 border-black inline-block px-6 py-1.5 rounded bg-slate-50">
+                عناصر الإجابة وسلم التنقيط النموذجي المفصل (Corrigé-type et Barème)
+              </h1>
+              <p className="text-xs text-slate-700 mt-1 font-semibold">
+                خاص بلجنة التصحيح والأساتذة مصححي المقياس • العلامة القصوى: 20 / 20
+              </p>
+            </div>
 
-              <div className="text-center my-3">
-                <h1 className="text-base font-black border-2 border-black inline-block px-6 py-1.5 rounded bg-slate-50">
-                  محضر سحب وتشميع مواضيع الاختبارات الكتابية
-                </h1>
-                <div className="text-xs font-bold text-slate-800 mt-1">
-                  امتحان نهاية التكوين • دورة: {formatAcademicYear(currentSession?.academicYear || '2026 / 2027')}
+            {/* Identification Box */}
+            <div className="border-2 border-black rounded-lg p-3 bg-slate-50/70 mb-3 text-xs leading-relaxed">
+              <div className="grid grid-cols-2 gap-y-1.5 gap-x-4">
+                <div>
+                  <span className="font-bold">الدورة التكوينية:</span>{' '}
+                  <strong>{sessionTitle}</strong>
+                </div>
+                <div>
+                  <span className="font-bold">السنة التكوينية:</span>{' '}
+                  <strong className="font-mono">{formatAcademicYear(academicYear)}</strong>
+                </div>
+                <div className="col-span-2 pt-1 border-t border-slate-300">
+                  <span className="font-bold">الرتبة التكوينية:</span>{' '}
+                  <strong className="text-sm">{currentRank.titleAr}</strong>
+                  <span className="text-[10px] bg-slate-200 text-slate-800 px-1.5 py-0.2 rounded font-mono font-bold mr-2">
+                    كود الرتبة: {rankNumericCode}
+                  </span>
+                </div>
+                <div className="col-span-2 pt-1 border-t border-slate-300">
+                  <span className="font-bold">مقياس الاختبار:</span>{' '}
+                  <strong className="text-sm">{selectedModule?.titleAr}</strong>
+                </div>
+                <div className="col-span-2 pt-1.5 border-t border-slate-300 flex items-center justify-between text-xs font-mono font-bold">
+                  <span>المدة: <strong>{duration}</strong></span>
+                  <span>المعامل: <strong>{coefficient}</strong></span>
+                  <span>تاريخ الإجراء: <strong>{formatArabicDate(examDate)}</strong></span>
+                  <span>العلامة القصوى: <strong className="text-emerald-800">20 / 20</strong></span>
                 </div>
               </div>
+            </div>
 
-              <div className="text-xs leading-relaxed space-y-3 p-4 border border-black rounded mb-4">
-                <p>
-                  في يوم: <strong>{formatArabicDate(new Date())}</strong>، التأمت بمقر مصلحة تنظيم سير المسابقات والامتحانات بالمعهد الوطني لتكوين موظفي قطاع التربية الوطنية بالأغواط، لجنة طبع وسحب وتشميع مواضيع الامتحانات تحت إشراف رئيس المركز.
-                </p>
-                <p>
-                  وقد باشرت اللجنة رسمياً عملية سحب ونسخ موضوع اختبار مقياس: <strong>{selectedModule?.titleAr}</strong>، المخصص لرتبة: <strong>{currentRank.titleAr}</strong>.
-                </p>
-                <p>
-                  وتشهد اللجنة بأن عملية السحب تمت في ظروف أمنية وسرية مطلقة، وتم إتلاف المسودات والنسخ التالفة فوراً، وإيداع الأوراق الأصلية المطبوعة داخل أظرفة القاعات المشمعة بالشمع الأحمر وختمها، وفق الإحصائيات الآتية:
-                </p>
-              </div>
+            {/* Rubric Content */}
+            <div className="border border-black rounded-lg p-4 text-xs font-simplified-arabic leading-relaxed whitespace-pre-wrap bg-white">
+              {corrigéContent}
+            </div>
 
-              <div className="grid grid-cols-2 gap-3 text-xs border border-black p-3 rounded mb-4 bg-slate-50 font-semibold">
-                <div>تعداد المترشحين المعنيين: <strong className="font-mono">{dbState.candidates.filter(c => c.specialtyId === currentSpecialtyId).length} متكوناً</strong></div>
-                <div>عدد النسخ المسحوبة: <strong className="font-mono">{dbState.candidates.filter(c => c.specialtyId === currentSpecialtyId).length + 5} نسخة</strong></div>
-                <div>عدد أظرفة القاعات المشمعة: <strong className="font-mono">قاعات الإجراء المعتمدة</strong></div>
-                <div>حالة النسخ الاحتياطية: <strong className="text-emerald-800">مشمعة ومودعة بالخزينة الفولاذية</strong></div>
-              </div>
-
-              {/* Signatures */}
-              <div className="border border-black p-3 rounded text-xs mt-6">
-                <div className="grid grid-cols-2 gap-6 text-center">
-                  <div>
-                    <span className="font-bold block mb-1">أعضاء أمانة المركز ولجنة السحب:</span>
-                    <div className="text-[11px] text-slate-700 mt-6">(الأسماء، التوقيعات، وتأشيرة الأمانة)</div>
-                  </div>
-                  <div>
-                    <span className="font-bold block mb-1">رئيس مركز الامتحان (مدير المعهد):</span>
-                    <div className="text-[11px] text-slate-700 mt-6">(الختم الرسمي وتوقيع رئيس المركز)</div>
-                  </div>
+            {/* Signatures */}
+            <div className="border border-black p-3 rounded text-xs mt-6">
+              <div className="grid grid-cols-2 gap-6 text-center">
+                <div>
+                  <span className="font-bold block mb-1">الأستاذ واضع الموضوع وسلّم التنقيط:</span>
+                  <div className="text-[11px] text-slate-700 mt-6">(الاسم واللقب، الصفة، والتوقيع)</div>
+                </div>
+                <div>
+                  <span className="font-bold block mb-1">رئيس لجنة التصحيح وتداول العلامات:</span>
+                  <div className="text-[11px] text-slate-700 mt-6">(التأشيرة، الختم الرسمي، والتاريخ)</div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        ) : (
+          /* Official Exam Question Paper (ورقة موضوع الامتحان الرسمية) */
+          <div className="space-y-4">
+            {/* 1. Official 5-Line Ministerial Header (STRICTLY TEXT ONLY - NO LOGO) */}
+            <div className="text-center border-b-2 border-black pb-3 mb-4 leading-snug">
+              <h2 className="font-bold text-xs md:text-sm text-black leading-tight">
+                {INSTITUTION.republic}
+              </h2>
+              <h3 className="font-bold text-[11px] md:text-xs text-slate-800 leading-tight mt-0.5">
+                {INSTITUTION.ministry}
+              </h3>
+              <h3 className="font-black text-xs md:text-sm text-black mt-1 leading-tight">
+                {INSTITUTION.name}
+              </h3>
+              <p className="text-[10px] md:text-[11px] text-slate-700 font-semibold mt-0.5">
+                {INSTITUTION.deputyDirectorate}
+              </p>
+              <p className="text-[11px] md:text-xs text-black font-black mt-0.5">
+                {INSTITUTION.service}
+              </p>
+            </div>
+
+            {/* 2. Official Examination Identification Box */}
+            <div className="border-2 border-black rounded-lg p-3 bg-slate-50/70 mb-3 text-xs leading-relaxed">
+              <div className="grid grid-cols-2 gap-y-1.5 gap-x-4">
+                <div>
+                  <span className="text-slate-600 font-bold text-[11px]">الدورة التكوينية:</span>{' '}
+                  <strong className="text-black font-black">{sessionTitle}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-600 font-bold text-[11px]">السنة التكوينية:</span>{' '}
+                  <strong className="text-black font-mono font-bold">{formatAcademicYear(academicYear)}</strong>
+                </div>
+
+                <div className="col-span-2 pt-1 border-t border-slate-300">
+                  <span className="text-slate-600 font-bold text-[11px]">الرتبة التكوينية:</span>{' '}
+                  <strong className="text-black text-sm font-black">{currentRank.titleAr}</strong>{' '}
+                  <span className="text-[10px] bg-slate-200 text-slate-800 px-1.5 py-0.2 rounded font-mono font-bold mr-2">
+                    كود الرتبة: {rankNumericCode}
+                  </span>
+                </div>
+
+                <div className="col-span-2 pt-1 border-t border-slate-300">
+                  <span className="text-slate-600 font-bold text-[11px]">موضوع الاختبار في مقياس:</span>{' '}
+                  <strong className="text-black text-sm font-black">{selectedModule?.titleAr}</strong>
+                </div>
+
+                <div className="col-span-2 pt-1.5 border-t border-slate-300 flex items-center justify-between text-xs font-mono font-bold text-black">
+                  <span>المدة المحددة: <strong>{duration}</strong></span>
+                  <span>المعامل: <strong>{coefficient}</strong></span>
+                  <span>تاريخ الإجراء: <strong>{formatArabicDate(examDate)}</strong></span>
+                  <span className="text-[10px] text-slate-600 font-normal">كود: COD-{selectedModule?.code}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Important Candidate Instructions Strip */}
+            {instructions && (
+              <div className="border-r-4 border-black bg-slate-100 p-2.5 rounded-l mb-4 text-xs text-black leading-relaxed font-bold">
+                <span className="block mb-0.5 text-black">توجيهات وتعليمات هامة للمترشح:</span>
+                <p className="font-normal text-slate-800 text-[11px]">{instructions}</p>
+              </div>
+            )}
+
+            {/* 4. Optional Dual-Choice Banner */}
+            {isDualChoice && (
+              <div className="text-center bg-black text-white py-1 px-4 rounded font-bold text-xs md:text-sm my-3 tracking-wide">
+                على المترشح أن يعالج أحد الموضوعين على الخيار
+              </div>
+            )}
+
+            {/* 5. Exam Subject Questions Body */}
+            <div 
+              className="min-h-[400px] p-2 text-justify text-xs md:text-sm text-black leading-loose font-simplified-arabic"
+              dangerouslySetInnerHTML={{ __html: editorRef.current?.innerHTML || editorContent }}
+            />
+
+            {/* 6. Official Bottom Sheet Footer */}
+            <div className="border-t-2 border-black pt-3 mt-8 flex items-center justify-between text-xs font-bold text-black">
+              <span className="text-[11px] text-slate-700">المعهد الوطني بالأغواط • مصلحة تنظيم سير المسابقات والامتحانات</span>
+              <span className="text-xs font-black text-black">
+                — انتهى موضوع الاختبار • بالتوفيق للجميع —
+              </span>
+              <span className="font-mono text-[11px]">صفحة 1 / 1</span>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
