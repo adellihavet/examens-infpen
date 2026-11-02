@@ -3,6 +3,7 @@ import { Printer, Scissors, ShieldAlert, CheckCircle2, User, FileText, AlertOcta
 import type { Candidate, ExamModule } from '../utils/crypto-anonymat';
 import { INSTITUTION } from '../constants/branding';
 import { formatArabicDate } from '../utils/date-formatter';
+import { triggerPrintWithDynamicTitle } from '../utils/print-utils';
 
 interface PrintAnswerSheetProps {
   candidate?: Candidate | null; // Optional: If null or undefined, prints a blank standardized sheet for the exam hall
@@ -88,7 +89,11 @@ export const PrintAnswerSheet: React.FC<PrintAnswerSheetProps> = ({
           </div>
 
           <button
-            onClick={() => window.print()}
+            onClick={() => {
+              const nameTag = !isBlank && candidate ? `_${candidate.fullName.replace(/\s+/g, '_')}` : '_نموذج_فارغ';
+              const docTitle = `ورقة_إجابة_رسمية_مقياس_${module.titleAr.replace(/\s+/g, '_')}${nameTag}`;
+              triggerPrintWithDynamicTitle(docTitle);
+            }}
             className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition cursor-pointer"
           >
             <Printer className="w-4 h-4" />
@@ -118,21 +123,34 @@ export const PrintAnswerSheet: React.FC<PrintAnswerSheetProps> = ({
           {/* Strictly contains explicit candidate info + empty sticker zone. NO ANONYMAT!  */}
           {/* ========================================================================= */}
           <div className="border-2 border-slate-900 rounded-xl p-4 bg-slate-50/60 relative">
-            {/* Official 5-Line Ministerial Header */}
-            <div className="text-center border-b-2 border-slate-900 pb-2 mb-3 leading-snug">
-              <p className="text-[11px] font-bold text-slate-800 leading-tight">{INSTITUTION.republic}</p>
-              <p className="text-[11px] font-bold text-slate-800 leading-tight">{INSTITUTION.ministry}</p>
-              <h1 className="text-xs md:text-sm font-bold text-slate-950 mt-0.5 print-bold">
-                {INSTITUTION.name}
-              </h1>
-              <p className="text-[11px] font-semibold text-slate-800 mt-0.5">
-                {INSTITUTION.deputyDirectorate}
-              </p>
-              <p className="text-[11px] font-bold text-slate-900 mt-0.5 print-bold">
-                {INSTITUTION.service}
-              </p>
-              <div className="inline-block bg-slate-900 text-white text-[11px] font-bold px-3 py-0.5 rounded-full mt-1.5 print-bold">
-                لسان إثبات هوية المترشح (قسيمة قابلة للقص والفصل في مصلحة تنظيم سير المسابقات والإمتحانات)
+            {/* Official 5-Line Ministerial Header with Black Logo */}
+            <div className="border-b-2 border-slate-900 pb-2 mb-3 leading-snug">
+              <div className="flex items-center justify-between">
+                <div className="text-right flex-1">
+                  <p className="text-[11px] font-bold text-slate-800 leading-tight">{INSTITUTION.republic}</p>
+                  <p className="text-[11px] font-bold text-slate-800 leading-tight">{INSTITUTION.ministry}</p>
+                  <h1 className="text-xs md:text-sm font-bold text-slate-950 mt-0.5 print-bold">
+                    {INSTITUTION.name}
+                  </h1>
+                  <p className="text-[11px] font-semibold text-slate-800 mt-0.5">
+                    {INSTITUTION.deputyDirectorate}
+                  </p>
+                  <p className="text-[11px] font-bold text-slate-900 mt-0.5 print-bold">
+                    {INSTITUTION.service}
+                  </p>
+                </div>
+                <div className="shrink-0 pl-3">
+                  <img 
+                    src={INSTITUTION.logoBlack} 
+                    alt="شعار المعهد" 
+                    className="h-12 w-auto object-contain filter contrast-125"
+                  />
+                </div>
+              </div>
+              <div className="text-center mt-1.5 border-t border-slate-300 pt-1">
+                <div className="inline-block bg-slate-900 text-white text-[11px] font-bold px-3 py-0.5 rounded-full print-bold">
+                  لسان إثبات هوية المترشح (قسيمة قابلة للقص والفصل في مصلحة تنظيم سير المسابقات والإمتحانات)
+                </div>
               </div>
             </div>
 

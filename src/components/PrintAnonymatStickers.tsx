@@ -3,6 +3,7 @@ import { Printer, Tag, ShieldCheck, Scissors, Sparkles, Filter, CheckCircle2, Al
 import { generateBarcodeSvg } from '../utils/barcode';
 import type { Candidate, ExamModule, AnonymatMapping } from '../utils/crypto-anonymat';
 import { INSTITUTION } from '../constants/branding';
+import { triggerPrintWithDynamicTitle } from '../utils/print-utils';
 
 interface PrintAnonymatStickersProps {
   module: ExamModule;
@@ -23,6 +24,7 @@ export const PrintAnonymatStickers: React.FC<PrintAnonymatStickersProps> = ({
 }) => {
   const [stickersPerPage, setStickersPerPage] = useState<number>(6); // 6 pairs per A4 page
   const [filterGroup, setFilterGroup] = useState<string>('all');
+  const [filterRoom, setFilterRoom] = useState<string>('all');
 
   // Pair mapping with candidate info
   const pairs = mappings.map(mapping => {
@@ -32,12 +34,14 @@ export const PrintAnonymatStickers: React.FC<PrintAnonymatStickersProps> = ({
       candidate
     };
   }).filter(item => {
-    if (filterGroup === 'all') return true;
-    return item.candidate?.groupNumber === filterGroup;
+    if (filterGroup !== 'all' && item.candidate?.groupNumber !== filterGroup) return false;
+    if (filterRoom !== 'all' && item.candidate?.roomNumber !== filterRoom) return false;
+    return true;
   });
 
-  // Unique groups for filtering
+  // Unique groups & rooms for filtering
   const groups = Array.from(new Set(candidates.map(c => c.groupNumber).filter(Boolean)));
+  const rooms = Array.from(new Set(candidates.map(c => c.roomNumber).filter(Boolean)));
 
   return (
     <div className="bg-slate-100 min-h-screen p-4 md:p-8 print:p-0 print:bg-white text-slate-900" dir="rtl">
@@ -59,6 +63,23 @@ export const PrintAnonymatStickers: React.FC<PrintAnonymatStickersProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Room Filter (Par Salle / Par Paquet) */}
+          {rooms.length > 0 && (
+            <div className="flex items-center gap-1.5 bg-slate-800 px-2 py-1 rounded-lg text-xs">
+              <span className="text-slate-400">القاعة / الظرف:</span>
+              <select
+                value={filterRoom}
+                onChange={(e) => setFilterRoom(e.target.value)}
+                className="bg-slate-900 text-white text-xs rounded border border-slate-700 px-2 py-1 focus:outline-none"
+              >
+                <option value="all">كل القاعات ({mappings.length})</option>
+                {rooms.map(r => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Group Filter */}
           {groups.length > 0 && (
             <div className="flex items-center gap-1.5 bg-slate-800 px-2 py-1 rounded-lg text-xs">
@@ -68,7 +89,7 @@ export const PrintAnonymatStickers: React.FC<PrintAnonymatStickersProps> = ({
                 onChange={(e) => setFilterGroup(e.target.value)}
                 className="bg-slate-900 text-white text-xs rounded border border-slate-700 px-2 py-1 focus:outline-none"
               >
-                <option value="all">كل الأفواج ({mappings.length})</option>
+                <option value="all">كل الأفواج</option>
                 {groups.map(g => (
                   <option key={g} value={g}>{g}</option>
                 ))}
@@ -77,7 +98,11 @@ export const PrintAnonymatStickers: React.FC<PrintAnonymatStickersProps> = ({
           )}
 
           <button
-            onClick={() => window.print()}
+            onClick={() => {
+              const roomTag = filterRoom !== 'all' ? `_القاعة_${filterRoom.replace(/\s+/g, '_')}` : '_جميع_القاعات';
+              const docTitle = `لواصق_الإغفال_المزدوجة_مقياس_${module.titleAr.replace(/\s+/g, '_')}${roomTag}`;
+              triggerPrintWithDynamicTitle(docTitle);
+            }}
             className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition cursor-pointer"
           >
             <Printer className="w-4 h-4" />
@@ -111,17 +136,28 @@ export const PrintAnonymatStickers: React.FC<PrintAnonymatStickersProps> = ({
 
       {/* Printable Stickers Sheet Container with Simplified Arabic Typography */}
       <div className="print-document max-w-5xl mx-auto bg-white p-6 md:p-8 rounded-xl shadow-lg print:shadow-none print:p-0 border border-slate-300 print:border-none">
-        {/* Printable Official 5-Line Header */}
-        <div className="hidden print:block border-b-2 border-slate-900 pb-2 mb-4 text-center leading-snug">
-          <p className="text-[10px] font-bold text-slate-700">{INSTITUTION.republic} — {INSTITUTION.ministry}</p>
-          <p className="text-xs font-bold text-slate-950 print-bold">
-            {INSTITUTION.name}
-          </p>
-          <p className="text-[10px] font-semibold text-slate-700">
-            {INSTITUTION.deputyDirectorate} • {INSTITUTION.service}
-          </p>
-          <p className="text-[11px] font-bold text-slate-900 mt-1 print-bold">
-            بطاقة لواصق الإغفال المزدوجة (Stickers d'Anonymat Jumeaux) • المقياس: {module.titleAr} ({module.code})
+        {/* Printable Official 5-Line Header with Black Logo */}
+        <div className="hidden print:block border-b-2 border-slate-900 pb-2 mb-4 leading-snug">
+          <div className="flex items-center justify-between">
+            <div className="text-right flex-1">
+              <p className="text-[10px] font-bold text-slate-700">{INSTITUTION.republic} — {INSTITUTION.ministry}</p>
+              <p className="text-xs font-bold text-slate-950 print-bold">
+                {INSTITUTION.name}
+              </p>
+              <p className="text-[10px] font-semibold text-slate-700">
+                {INSTITUTION.deputyDirectorate} • {INSTITUTION.service}
+              </p>
+            </div>
+            <div className="shrink-0 pl-3">
+              <img 
+                src={INSTITUTION.logoBlack} 
+                alt="شعار المعهد" 
+                className="h-12 w-auto object-contain filter contrast-125"
+              />
+            </div>
+          </div>
+          <p className="text-[11px] font-bold text-slate-900 mt-1 print-bold text-center border-t border-slate-300 pt-1">
+            بطاقة لواصق الإغفال المزدوجة (Stickers d'Anonymat Jumeaux) • المقياس: {module.titleAr} ({module.code}) {filterRoom !== 'all' ? `• القاعة: ${filterRoom}` : ''}
           </p>
         </div>
 

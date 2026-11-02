@@ -3,6 +3,7 @@ import { Printer, ShieldAlert, Lock, FileText, CheckCircle2, KeyRound } from 'lu
 import type { Candidate, ExamModule, AnonymatMapping } from '../utils/crypto-anonymat';
 import { INSTITUTION } from '../constants/branding';
 import { formatArabicDate } from '../utils/date-formatter';
+import { triggerPrintWithDynamicTitle } from '../utils/print-utils';
 
 interface PrintConcordanceReportProps {
   module: ExamModule;
@@ -74,7 +75,10 @@ export const PrintConcordanceReport: React.FC<PrintConcordanceReportProps> = ({
           )}
 
           <button
-            onClick={() => window.print()}
+            onClick={() => {
+              const docTitle = `محضر_المطابقة_السري_مقياس_${module.titleAr.replace(/\s+/g, '_')}_${formatArabicDate(new Date())}`;
+              triggerPrintWithDynamicTitle(docTitle);
+            }}
             className="flex items-center gap-1.5 bg-red-700 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition cursor-pointer"
           >
             <Printer className="w-4 h-4" />
@@ -94,20 +98,29 @@ export const PrintConcordanceReport: React.FC<PrintConcordanceReportProps> = ({
 
       {/* Main Printable Document Container with Simplified Arabic Typography */}
       <div className="print-document max-w-6xl mx-auto bg-white p-8 rounded-xl shadow-xl print:shadow-none print:p-0 border border-slate-300 print:border-none">
-        {/* Official 5-Line Ministerial Header */}
+        {/* Official 5-Line Ministerial Header with Black Logo */}
         <div className="border-b-2 border-slate-900 pb-3 mb-6">
-          <div className="text-center space-y-0.5 leading-snug">
-            <p className="text-xs font-bold text-slate-800">{INSTITUTION.republic}</p>
-            <p className="text-xs font-bold text-slate-800">{INSTITUTION.ministry}</p>
-            <h1 className="text-sm md:text-base font-bold text-slate-950 mt-0.5 print-bold">
-              {INSTITUTION.name}
-            </h1>
-            <p className="text-xs font-semibold text-slate-800 mt-0.5">
-              {INSTITUTION.deputyDirectorate}
-            </p>
-            <p className="text-xs font-bold text-slate-900 mt-0.5 print-bold">
-              {INSTITUTION.service}
-            </p>
+          <div className="flex items-center justify-between">
+            <div className="text-right flex-1 leading-snug">
+              <p className="text-xs font-bold text-slate-800">{INSTITUTION.republic}</p>
+              <p className="text-xs font-bold text-slate-800">{INSTITUTION.ministry}</p>
+              <h1 className="text-sm md:text-base font-bold text-slate-950 mt-0.5 print-bold">
+                {INSTITUTION.name}
+              </h1>
+              <p className="text-xs font-semibold text-slate-800 mt-0.5">
+                {INSTITUTION.deputyDirectorate}
+              </p>
+              <p className="text-xs font-bold text-slate-900 mt-0.5 print-bold">
+                {INSTITUTION.service}
+              </p>
+            </div>
+            <div className="shrink-0 pl-3">
+              <img 
+                src={INSTITUTION.logoBlack} 
+                alt="شعار المعهد" 
+                className="h-16 w-auto object-contain filter contrast-125"
+              />
+            </div>
           </div>
 
           <div className="mt-4 flex flex-col md:flex-row items-center justify-between gap-3 bg-slate-50 border-2 border-slate-900 p-3 rounded-lg">

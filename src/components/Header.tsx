@@ -35,8 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'conduct', label: 'قسم الإجراء' },
     { id: 'exam_maker', label: 'نموذج موضوع الامتحان (Word)' },
     { id: 'pedagogical_grades', label: 'التقييم البيداغوجي والمذكرات' },
-    { id: 'anonymat', label: 'التشفير والإغفال الأمني' },
-    { id: 'grades', label: 'حجز نقاط أوراق الامتحان' },
+    { id: 'anonymat', label: 'التشفير ورصد النقاط المغفلة' },
     { id: 'deliberation', label: 'المداولات ومحاضر التخرج' },
     { id: 'bank', label: 'بنك المواضيع' }
   ];

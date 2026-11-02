@@ -229,17 +229,11 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'anonymat' && (
+        {(activeTab === 'anonymat' || activeTab === 'grades') && (
           <AnonymatView
             dbState={dbState}
+            initialSubTab={activeTab === 'grades' ? 'grading_entry' : undefined}
             onUpdateAnonymat={handleUpdateAnonymat}
-            onAddAuditLog={addAuditLog}
-          />
-        )}
-
-        {activeTab === 'grades' && (
-          <AnonymatGrading
-            dbState={dbState}
             onUpdateGrades={handleUpdateGrades}
             onAddAuditLog={addAuditLog}
           />
