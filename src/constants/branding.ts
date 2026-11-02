@@ -15,7 +15,9 @@ export const INSTITUTION = {
   wilaya: 'الأغواط',
   director: 'أ.د. مسعودي عبد الرزاق',
   directorTitle: 'مدير المعهد',
-  serviceHeadTitle: 'رئيس مصلحة تنظيم سير المسابقات والإمتحانات المهنية'
+  serviceHeadTitle: 'رئيس مصلحة تنظيم سير المسابقات والإمتحانات المهنية',
+  logoBlack: 'https://i.imgur.com/qrj96Ud.png',
+  logoGold: 'https://i.imgur.com/fT9rz9d.png'
 } as const;
 
 /**

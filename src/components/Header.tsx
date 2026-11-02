@@ -45,8 +45,12 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="bg-slate-900 text-white border-b border-slate-800 shadow-md sticky top-0 z-30 no-print">
       {/* Top Ministerial & Institutional Strip */}
       <div className="bg-slate-950 px-4 py-2 border-b border-slate-800 flex flex-wrap items-center justify-between text-xs">
-        <div className="flex items-center gap-3">
-          <div className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse" />
+        <div className="flex items-center gap-2.5">
+          <img 
+            src={INSTITUTION.logoGold} 
+            alt="INFPE" 
+            className="w-4 h-4 object-contain filter drop-shadow-[0_1px_2px_rgba(245,158,11,0.4)]"
+          />
           <span className="font-semibold text-slate-200">{INSTITUTION.republic} — {INSTITUTION.ministry}</span>
           <span className="hidden md:inline text-slate-500">|</span>
           <span className="hidden md:inline text-amber-300 font-medium">{INSTITUTION.name}</span>
@@ -67,8 +71,13 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Main Bar with Institutional Logo & Info */}
       <div className="px-5 py-3 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-orange-500 via-amber-600 to-slate-800 flex items-center justify-center shadow-lg border border-orange-400/40">
-            <ShieldCheck className="w-6 h-6 text-amber-100" />
+          <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-900 via-amber-950/50 to-slate-950 flex items-center justify-center shadow-xl border border-amber-500/40 p-1 group">
+            <img 
+              src={INSTITUTION.logoGold} 
+              alt="شعار المعهد الوطني" 
+              className="w-full h-full object-contain filter drop-shadow-[0_2px_6px_rgba(245,158,11,0.35)] group-hover:scale-105 transition duration-300"
+            />
+            <div className="absolute -bottom-0.5 -left-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-900" title="النظام متصل ونشط" />
           </div>
           <div>
             <h1 className="text-base md:text-lg font-bold tracking-tight text-white font-cairo">

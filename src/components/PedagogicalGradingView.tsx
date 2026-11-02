@@ -62,9 +62,10 @@ export const PedagogicalGradingView: React.FC<PedagogicalGradingViewProps> = ({
   // Active sub-tab
   const [activeSubTab, setActiveSubTab] = useState<'continuous_control' | 'overall_pedagogical'>('continuous_control');
 
-  // Modal states
+  // Modal states & Active print doc target
   const [isRankModalOpen, setIsRankModalOpen] = useState(false);
   const [previewModalDoc, setPreviewModalDoc] = useState<'continuous_control' | 'overall_pedagogical' | null>(null);
+  const [activePrintDoc, setActivePrintDoc] = useState<'continuous_control' | 'overall_pedagogical'>('continuous_control');
 
   // Hidden file input refs for imports
   const importModuleExcelRef = useRef<HTMLInputElement>(null);
@@ -77,8 +78,8 @@ export const PedagogicalGradingView: React.FC<PedagogicalGradingViewProps> = ({
   const [focusedModuleId, setFocusedModuleId] = useState<string>('all');
 
   // Toast / notification state
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
-  const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' | 'warning' } | null>(null);
+  const showToast = (message: string, type: 'success' | 'info' | 'error' | 'warning' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
   };
@@ -649,7 +650,7 @@ export const PedagogicalGradingView: React.FC<PedagogicalGradingViewProps> = ({
   };
 
   // ---------------------------------------------------------------------------
-  // EXCEL IMPORTS
+  // EXCEL IMPORTS (ACCURATE & BULLETPROOF COLUMN MATCHING)
   // ---------------------------------------------------------------------------
 
   // 1. Import continuous control Excel file
@@ -688,11 +689,9 @@ export const PedagogicalGradingView: React.FC<PedagogicalGradingViewProps> = ({
         const newModuleGrades = { ...moduleGradesDraft };
 
         // Check if single module file or multi-module file
-        // Look for modules in header
         const moduleColumnMappings: { colIdx: number; moduleId: string }[] = [];
         headerRow.forEach((colName, cIdx) => {
           if (cIdx === regColIdx) return;
-          // Check if column matches any of rankModules title or code
           const foundMod = rankModules.find(m => 
             colName.includes(m.titleAr) || 
             (colName.includes('علامة المراقبة') && focusedModuleId !== 'all')
@@ -704,9 +703,10 @@ export const PedagogicalGradingView: React.FC<PedagogicalGradingViewProps> = ({
           }
         });
 
-        // If no direct column matches, but there's a column with "علامة" or "المراقبة", and user has a focused module
         if (moduleColumnMappings.length === 0 && focusedModuleId !== 'all') {
-          const gradeCol = headerRow.findIndex(c => c.includes('علامة') || c.includes('نقطة'));
+          const gradeCol = headerRow.findIndex(c => 
+            (c.includes('علامة') || c.includes('نقطة')) && !c.includes('الاسم') && !c.includes('التسجيل')
+          );
           if (gradeCol !== -1) {
             moduleColumnMappings.push({ colIdx: gradeCol, moduleId: focusedModuleId });
           }
@@ -738,18 +738,59 @@ export const PedagogicalGradingView: React.FC<PedagogicalGradingViewProps> = ({
           });
         }
 
+        if (updatedCount === 0) {
+          showToast('تمت قراءة الملف لكن لم يتم العثور على درجات صالحة للرصد!', 'warning');
+          return;
+        }
+
         setModuleGradesDraft(newModuleGrades);
-        showToast(`تم استيراد ${updatedCount} نقطة مراقبة مستمرة بنجاح من ملف Excel! انقر على "حفظ وتثبيت" لاعتمادها.`, 'success');
+
+        // Immediate persistence to candidates in dbState
+        const updatedCandidates = dbState.candidates.map(cand => {
+          if (cand.specialtyId !== currentSpecialtyId) return cand;
+          const cGrades = newModuleGrades[cand.id] || {};
+          const cleanModuleGrades: Record<string, number> = {};
+          rankModules.forEach(m => {
+            const val = cGrades[m.id];
+            if (typeof val === 'number') {
+              cleanModuleGrades[m.id] = val;
+            }
+          });
+
+          // Calculate weighted average
+          let wSum = 0;
+          let sCoeffs = 0;
+          rankModules.forEach(mod => {
+            const g = cleanModuleGrades[mod.id];
+            if (typeof g === 'number' && !isNaN(g)) {
+              wSum += g * mod.coefficient;
+              sCoeffs += mod.coefficient;
+            }
+          });
+          const ccAvg = sCoeffs > 0 ? Number((wSum / totalCoefficients).toFixed(2)) : cand.continuousAssessment;
+
+          return {
+            ...cand,
+            continuousControlGrades: cleanModuleGrades,
+            continuousAssessment: ccAvg !== undefined ? ccAvg : cand.continuousAssessment
+          };
+        });
+
+        onUpdateCandidates(updatedCandidates);
+        onAddAuditLog(
+          'استيراد نقاط المراقبة المستمرة',
+          `تم استيراد وحفظ ${updatedCount} نقطة مراقبة مستمرة لرتبة: ${currentRank.titleAr}`
+        );
+        showToast(`تم استيراد وحفظ ${updatedCount} نقطة مراقبة مستمرة بنجاح في المنصة!`, 'success');
       } catch (err) {
         showToast('حدث خطأ أثناء قراءة ملف Excel، تأكد من سلامة تنسيق الملف.', 'error');
       }
     };
     reader.readAsArrayBuffer(file);
-    // Reset file input
     e.target.value = '';
   };
 
-  // 2. Import Internship Excel file
+  // 2. Import Internship Excel file (Explicit & Safe Column Extraction)
   const handleImportInternshipExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -778,31 +819,78 @@ export const PedagogicalGradingView: React.FC<PedagogicalGradingViewProps> = ({
 
         const headerRow = json[headerRowIdx].map(c => String(c || '').trim());
         const regColIdx = headerRow.findIndex(c => c.includes('رقم التسجيل'));
-        const gradeColIdx = headerRow.findIndex(c => c.includes('التربص') || c.includes('علامة'));
+
+        // Bulletproof search for Internship Grade column (avoiding institution, period, supervisor columns)
+        let gradeColIdx = headerRow.findIndex(c => 
+          (c.includes('علامة') || c.includes('نقطة') || c.toLowerCase().includes('note') || c.toLowerCase().includes('grade')) &&
+          !c.includes('المؤسسة') && !c.includes('المستقبلة') && !c.includes('المؤطر') && !c.includes('ملاحظات') && !c.includes('فترة')
+        );
+
+        if (gradeColIdx === -1) {
+          gradeColIdx = headerRow.findIndex(c => 
+            c.includes('التربص') && 
+            !c.includes('المؤسسة') && !c.includes('المستقبلة') && !c.includes('المؤطر') && !c.includes('ملاحظات') && !c.includes('فترة')
+          );
+        }
+
+        if (gradeColIdx === -1) {
+          gradeColIdx = headerRow.findIndex(c => 
+            (c.includes('20') || c.includes('/20')) && 
+            !c.includes('المؤسسة') && !c.includes('المستقبلة') && !c.includes('المؤطر') && !c.includes('ملاحظات')
+          );
+        }
+
+        // Fallback: standard column 6 if template has 8 columns
+        if (gradeColIdx === -1 && headerRow.length >= 7) {
+          gradeColIdx = 6;
+        }
 
         if (regColIdx === -1 || gradeColIdx === -1) {
-          showToast('تعذر العثور على عمود علامة التربص التطبيقي في الملف.', 'error');
+          showToast('تعذر العثور على عمود علامة التربص التطبيقي في الملف. تأكد من استخدام قالب المنصة المصدر.', 'error');
           return;
         }
 
         let count = 0;
-        const next = { ...internshipGradesDraft };
+        const nextDraft = { ...internshipGradesDraft };
+
         for (let r = headerRowIdx + 1; r < json.length; r++) {
           const row = json[r];
-          if (!row) continue;
+          if (!row || row.length === 0) continue;
           const reg = String(row[regColIdx] || '').trim();
+          if (!reg) continue;
+
           const cand = candidates.find(c => c.registrationNumber === reg);
           if (cand) {
-            const parsed = parseGradeInput(row[gradeColIdx]);
+            const rawVal = row[gradeColIdx];
+            const parsed = parseGradeInput(rawVal);
             if (parsed !== '') {
-              next[cand.id] = parsed;
+              nextDraft[cand.id] = parsed;
               count++;
             }
           }
         }
 
-        setInternshipGradesDraft(next);
-        showToast(`تم استيراد علامات التربص لعدد ${count} متكون بنجاح!`, 'success');
+        if (count === 0) {
+          showToast('تمت قراءة الملف لكن لم يتم العثور على علامات صالحة (بين 0 و 20) في عمود النقاط!', 'warning');
+          return;
+        }
+
+        setInternshipGradesDraft(nextDraft);
+
+        // Immediate persistence to candidates in dbState
+        const updatedCandidates = dbState.candidates.map(c => {
+          if (c.specialtyId === currentSpecialtyId && nextDraft[c.id] !== undefined && typeof nextDraft[c.id] === 'number') {
+            return { ...c, internshipGrade: nextDraft[c.id] as number };
+          }
+          return c;
+        });
+        onUpdateCandidates(updatedCandidates);
+
+        onAddAuditLog(
+          'استيراد علامات التربص التطبيقي',
+          `تم استيراد وحفظ علامات التربص التطبيقي لعدد ${count} متكون برتبة: ${currentRank.titleAr}`
+        );
+        showToast(`تم بنجاح رصد واستيراد وحفظ علامات التربص التطبيقي لعدد ${count} متكون بالمنصة!`, 'success');
       } catch (err) {
         showToast('خطأ أثناء قراءة ملف التربص التطبيقي.', 'error');
       }
@@ -811,7 +899,7 @@ export const PedagogicalGradingView: React.FC<PedagogicalGradingViewProps> = ({
     e.target.value = '';
   };
 
-  // 3. Import Memoir/Report Excel file
+  // 3. Import Memoir/Report Excel file (Explicit & Safe Column Extraction)
   const handleImportMemoirExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -840,33 +928,78 @@ export const PedagogicalGradingView: React.FC<PedagogicalGradingViewProps> = ({
 
         const headerRow = json[headerRowIdx].map(c => String(c || '').trim());
         const regColIdx = headerRow.findIndex(c => c.includes('رقم التسجيل'));
-        const gradeColIdx = headerRow.findIndex(c => 
-          c.includes('المذكرة') || c.includes('التقرير') || c.includes('علامة')
+
+        // Bulletproof search for Memoir/Report Grade column (avoiding topic/title, supervisor, jury decision columns)
+        let gradeColIdx = headerRow.findIndex(c => 
+          (c.includes('علامة') || c.includes('نقطة') || c.toLowerCase().includes('note') || c.toLowerCase().includes('grade')) &&
+          !c.includes('عنوان') && !c.includes('المشرف') && !c.includes('المؤطر') && !c.includes('القرار') && !c.includes('تقدير')
         );
 
+        if (gradeColIdx === -1) {
+          gradeColIdx = headerRow.findIndex(c => 
+            (c.includes('المذكرة') || c.includes('التقرير') || c.includes('التخرج')) && 
+            !c.includes('عنوان') && !c.includes('المشرف') && !c.includes('المؤطر') && !c.includes('القرار') && !c.includes('تقدير')
+          );
+        }
+
+        if (gradeColIdx === -1) {
+          gradeColIdx = headerRow.findIndex(c => 
+            (c.includes('20') || c.includes('/20')) && 
+            !c.includes('عنوان') && !c.includes('المشرف') && !c.includes('المؤطر') && !c.includes('القرار')
+          );
+        }
+
+        // Fallback: standard column 5 if template has 7 columns
+        if (gradeColIdx === -1 && headerRow.length >= 6) {
+          gradeColIdx = 5;
+        }
+
         if (regColIdx === -1 || gradeColIdx === -1) {
-          showToast('تعذر العثور على عمود علامة المذكرة/التقرير في الملف.', 'error');
+          showToast(`تعذر العثور على عمود علامة ${deliverableInfo.labelAr} في الملف. تأكد من استخدام قالب المنصة.`, 'error');
           return;
         }
 
         let count = 0;
-        const next = { ...memoirGradesDraft };
+        const nextDraft = { ...memoirGradesDraft };
+
         for (let r = headerRowIdx + 1; r < json.length; r++) {
           const row = json[r];
-          if (!row) continue;
+          if (!row || row.length === 0) continue;
           const reg = String(row[regColIdx] || '').trim();
+          if (!reg) continue;
+
           const cand = candidates.find(c => c.registrationNumber === reg);
           if (cand) {
-            const parsed = parseGradeInput(row[gradeColIdx]);
+            const rawVal = row[gradeColIdx];
+            const parsed = parseGradeInput(rawVal);
             if (parsed !== '') {
-              next[cand.id] = parsed;
+              nextDraft[cand.id] = parsed;
               count++;
             }
           }
         }
 
-        setMemoirGradesDraft(next);
-        showToast(`تم استيراد علامات ${deliverableInfo.labelAr} لعدد ${count} متكون بنجاح!`, 'success');
+        if (count === 0) {
+          showToast('تمت قراءة الملف لكن لم يتم العثور على علامات صالحة (بين 0 و 20) في عمود النقاط!', 'warning');
+          return;
+        }
+
+        setMemoirGradesDraft(nextDraft);
+
+        // Immediate persistence to candidates in dbState
+        const updatedCandidates = dbState.candidates.map(c => {
+          if (c.specialtyId === currentSpecialtyId && nextDraft[c.id] !== undefined && typeof nextDraft[c.id] === 'number') {
+            return { ...c, memoirGrade: nextDraft[c.id] as number };
+          }
+          return c;
+        });
+        onUpdateCandidates(updatedCandidates);
+
+        onAddAuditLog(
+          `استيراد علامات ${deliverableInfo.labelAr}`,
+          `تم استيراد وحفظ علامات ${deliverableInfo.labelAr} لعدد ${count} متكون برتبة: ${currentRank.titleAr}`
+        );
+        showToast(`تم بنجاح رصد واستيراد وحفظ علامات ${deliverableInfo.labelAr} لعدد ${count} متكون بالمنصة!`, 'success');
       } catch (err) {
         showToast('خطأ أثناء قراءة ملف المذكرة/التقرير.', 'error');
       }
@@ -879,6 +1012,7 @@ export const PedagogicalGradingView: React.FC<PedagogicalGradingViewProps> = ({
   // PRINT ACTION WITH DYNAMIC PDF TITLE
   // ---------------------------------------------------------------------------
   const handleTriggerPrint = (docType: 'continuous_control' | 'overall_pedagogical') => {
+    setActivePrintDoc(docType);
     const today = new Date().toISOString().slice(0, 10);
     const cleanRank = currentRank.titleAr.trim().replace(/[\s/]/g, '_');
     let title = '';
@@ -901,6 +1035,8 @@ export const PedagogicalGradingView: React.FC<PedagogicalGradingViewProps> = ({
             ? 'bg-emerald-100 text-emerald-950 border-emerald-300'
             : toast.type === 'error'
             ? 'bg-rose-100 text-rose-950 border-rose-300'
+            : toast.type === 'warning'
+            ? 'bg-amber-100 text-amber-950 border-amber-300'
             : 'bg-orange-100 text-orange-950 border-orange-300'
         }`}>
           <span>{toast.message}</span>
@@ -1137,11 +1273,25 @@ export const PedagogicalGradingView: React.FC<PedagogicalGradingViewProps> = ({
               {/* Preview Print */}
               <button
                 type="button"
-                onClick={() => setPreviewModalDoc('continuous_control')}
-                className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer"
+                onClick={() => {
+                  setActivePrintDoc('continuous_control');
+                  setPreviewModalDoc('continuous_control');
+                }}
+                className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer"
               >
                 <Eye className="w-3.5 h-3.5 text-orange-400" />
-                <span>معاينة وطباعة (A4)</span>
+                <span>معاينة (A4)</span>
+              </button>
+
+              {/* Direct Print */}
+              <button
+                type="button"
+                onClick={() => handleTriggerPrint('continuous_control')}
+                className="inline-flex items-center gap-1.5 bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shadow-xs"
+                title="طباعة كشف المراقبة المستمرة مباشرة"
+              >
+                <Printer className="w-3.5 h-3.5 text-amber-200" />
+                <span>طباعة مباشرة</span>
               </button>
 
               {/* 3D Save Button */}
@@ -1398,11 +1548,25 @@ export const PedagogicalGradingView: React.FC<PedagogicalGradingViewProps> = ({
               {/* Preview Print */}
               <button
                 type="button"
-                onClick={() => setPreviewModalDoc('overall_pedagogical')}
-                className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer"
+                onClick={() => {
+                  setActivePrintDoc('overall_pedagogical');
+                  setPreviewModalDoc('overall_pedagogical');
+                }}
+                className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer"
               >
                 <Eye className="w-3.5 h-3.5 text-orange-400" />
-                <span>معاينة وطباعة (A4)</span>
+                <span>معاينة (A4)</span>
+              </button>
+
+              {/* Direct Print */}
+              <button
+                type="button"
+                onClick={() => handleTriggerPrint('overall_pedagogical')}
+                className="inline-flex items-center gap-1.5 bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shadow-xs"
+                title="طباعة الكشف الإجمالي للنقاط البيداغوجية مباشرة"
+              >
+                <Printer className="w-3.5 h-3.5 text-amber-200" />
+                <span>طباعة مباشرة</span>
               </button>
 
               {/* 3D Save Button */}
@@ -1720,195 +1884,219 @@ export const PedagogicalGradingView: React.FC<PedagogicalGradingViewProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* LIVE PRINT PREVIEW MODAL (A4 WITH DYNAMIC TITLE)                          */}
+      {/* RENDER OFFICIAL DOCUMENT HELPER FUNCTION (SHARED BETWEEN PREVIEW & PRINT) */}
       {/* ========================================================================= */}
-      {previewModalDoc && (
-        <div className="no-print fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex flex-col items-center justify-center p-3 md:p-6 overflow-y-auto">
-          <div className="w-full max-w-4xl bg-slate-900 text-white rounded-t-2xl p-4 flex items-center justify-between shadow-xl">
-            <div className="flex items-center gap-2.5">
-              <Eye className="w-5 h-5 text-orange-400" />
+      {(() => {
+        // Internal renderer for official A4 printable documents
+        const renderOfficialDocumentContent = (docType: 'continuous_control' | 'overall_pedagogical') => (
+          <div className="w-full bg-white text-slate-900 font-simplified-arabic">
+            {/* Ministerial Header */}
+            <div className="text-center border-b-2 border-black pb-2 mb-3">
+              <h2 className="font-bold text-xs">{INSTITUTION.republic}</h2>
+              <h3 className="font-bold text-[11px] text-slate-800">{INSTITUTION.ministry}</h3>
+              <h3 className="font-bold text-xs text-black mt-0.5">{INSTITUTION.name}</h3>
+              <p className="text-[10px] text-slate-700">{INSTITUTION.deputyDirectorate} • مصلحة تنظيم الامتحانات والتقييم</p>
+              <div className="mt-1 inline-block border-2 border-black px-4 py-0.5 rounded font-black text-sm bg-slate-50">
+                {docType === 'continuous_control' 
+                  ? 'كشف نقاط المراقبة البيداغوجية المستمرة (المقاييس والمعاملات الرسمية)'
+                  : `الكشف الإجمالي للنقاط البيداغوجية (المراقبة المستمرة + التربص التطبيقي + ${deliverableInfo.labelAr})`}
+              </div>
+            </div>
+
+            {/* Administrative Subheader */}
+            <div className="grid grid-cols-2 gap-2 text-xs border border-black p-2 rounded mb-3 bg-slate-50">
+              <div><strong>الرتبة التكوينية:</strong> {currentRank.titleAr} ({currentRank.trackId === 'specialized' ? 'تكوين متخصص - امتحان مهني' : 'تكوين قبل الترقية'})</div>
+              <div><strong>الدورة التكوينية:</strong> {formatAcademicYear(currentSession?.academicYear || '2026/2027')}</div>
+              <div><strong>تعداد المتكونين:</strong> {candidates.length} متكون</div>
+              <div><strong>تاريخ استخراج الوثيقة:</strong> {formatArabicDate(new Date())}</div>
+            </div>
+
+            {/* Document Specific Table */}
+            {docType === 'continuous_control' ? (
               <div>
-                <h3 className="font-bold text-sm md:text-base font-cairo">
-                  {previewModalDoc === 'continuous_control' 
-                    ? `معاينة كشف المراقبة البيداغوجية المستمرة - ${currentRank.titleAr}`
-                    : `معاينة الكشف الإجمالي للنقاط البيداغوجية - ${currentRank.titleAr}`}
-                </h3>
-                <span className="text-[10px] text-slate-400">
-                  مخرجات رسمية معتمدة للطباعة المباشرة وحفظ PDF
+                <table className="w-full text-right text-[11px] border-collapse border border-black mb-4">
+                  <thead className="bg-slate-100 font-bold border-b border-black">
+                    <tr>
+                      <th className="border border-black p-1 text-center w-8">#</th>
+                      <th className="border border-black p-1 text-center w-20 font-mono">رقم التسجيل</th>
+                      <th className="border border-black p-1">اللقب والاسم الكامل</th>
+                      <th className="border border-black p-1 text-center w-14">الفوج</th>
+                      {rankModules.map(m => (
+                        <th key={m.id} className="border border-black p-1 text-center text-[10px]">
+                          <div>{m.code}</div>
+                          <span className="font-mono">م{m.coefficient}</span>
+                        </th>
+                      ))}
+                      <th className="border border-black p-1 text-center font-mono w-16">المجموع</th>
+                      <th className="border border-black p-1 text-center font-mono w-16 bg-slate-200">المعدل</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {candidates.map((c, idx) => {
+                      const cGrades = moduleGradesDraft[c.id] || {};
+                      const ccRes = calculateCandidateCC(c.id);
+
+                      return (
+                        <tr key={c.id} className="border-b border-black">
+                          <td className="border border-black p-1 text-center font-mono">{idx + 1}</td>
+                          <td className="border border-black p-1 text-center font-mono font-bold">{c.registrationNumber}</td>
+                          <td className="border border-black p-1 font-bold">{c.fullName}</td>
+                          <td className="border border-black p-1 text-center font-mono text-[10px]">{c.groupNumber || '01'}</td>
+                          {rankModules.map(m => {
+                            const v = cGrades[m.id];
+                            return (
+                              <td key={m.id} className="border border-black p-1 text-center font-mono text-[10px]">
+                                {typeof v === 'number' ? v.toFixed(1) : '—'}
+                              </td>
+                            );
+                          })}
+                          <td className="border border-black p-1 text-center font-mono font-bold">
+                            {ccRes.weightedSum > 0 ? ccRes.weightedSum.toFixed(1) : '—'}
+                          </td>
+                          <td className="border border-black p-1 text-center font-mono font-bold bg-slate-50">
+                            {ccRes.average !== null ? ccRes.average.toFixed(2) : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <div className="text-[10px] text-slate-600 mb-6">
+                  * المقاييس أعلاه تمثل المقاييس الرسمية المعتمدة للرتبة، والقاسم الإجمالي لحساب معدل المراقبة المستمرة هو مجموع المعاملات ({totalCoefficients}).
+                </div>
+              </div>
+            ) : (
+              <div>
+                <table className="w-full text-right text-xs border-collapse border border-black mb-6">
+                  <thead className="bg-slate-100 font-bold border-b border-black">
+                    <tr>
+                      <th className="border border-black p-1.5 text-center w-10">#</th>
+                      <th className="border border-black p-1.5 text-center w-24 font-mono">رقم التسجيل</th>
+                      <th className="border border-black p-1.5">اللقب والاسم الكامل</th>
+                      <th className="border border-black p-1.5 text-center w-16">الفوج</th>
+                      <th className="border border-black p-1.5 text-center w-24">مراقبة مستمرة (م1)</th>
+                      <th className="border border-black p-1.5 text-center w-24">تربص تطبيقي (م1)</th>
+                      <th className="border border-black p-1.5 text-center w-28">{deliverableInfo.type === 'memoir' ? 'المذكرة' : 'التقرير'} (م{deliverableInfo.coeff})</th>
+                      <th className="border border-black p-1.5 text-center w-24 bg-slate-200">المعدل الجزئي</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {candidates.map((c, idx) => {
+                      const ccRes = calculateCandidateCC(c.id);
+                      const intern = internshipGradesDraft[c.id];
+                      const mem = memoirGradesDraft[c.id];
+
+                      let s = 0;
+                      let cf = 0;
+                      if (ccRes.average !== null) { s += ccRes.average * 1; cf += 1; }
+                      if (typeof intern === 'number') { s += intern * 1; cf += 1; }
+                      if (typeof mem === 'number') { s += mem * deliverableInfo.coeff; cf += deliverableInfo.coeff; }
+
+                      const partAvg = cf > 0 ? (s / cf).toFixed(2) : '—';
+
+                      return (
+                        <tr key={c.id} className="border-b border-black">
+                          <td className="border border-black p-1.5 text-center font-mono">{idx + 1}</td>
+                          <td className="border border-black p-1.5 text-center font-mono font-bold">{c.registrationNumber}</td>
+                          <td className="border border-black p-1.5 font-bold">{c.fullName}</td>
+                          <td className="border border-black p-1.5 text-center font-mono text-[11px]">{c.groupNumber || '01'}</td>
+                          <td className="border border-black p-1.5 text-center font-mono font-bold">
+                            {ccRes.average !== null ? ccRes.average.toFixed(2) : '—'}
+                          </td>
+                          <td className="border border-black p-1.5 text-center font-mono font-bold">
+                            {typeof intern === 'number' ? intern.toFixed(2) : '—'}
+                          </td>
+                          <td className="border border-black p-1.5 text-center font-mono font-bold">
+                            {typeof mem === 'number' ? mem.toFixed(2) : '—'}
+                          </td>
+                          <td className="border border-black p-1.5 text-center font-mono font-bold bg-slate-50">
+                            {partAvg}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Signatures & Seal */}
+            <div className="grid grid-cols-2 gap-8 text-center text-xs pt-4 border-t-2 border-black mt-auto">
+              <div>
+                <span className="font-bold block"></span>
+                <span className="text-[10px] text-slate-600"></span>
+                <div className="h-14"></div>
+                <span className="font-bold"></span>
+              </div>
+              <div>
+                <span className="font-bold block">مدير المعهد</span>
+                <span className="text-[10px] text-slate-600"></span>
+                <div className="h-14"></div>
+                <span className="font-bold text-slate-900">
+                  {dbState.institutionSettings?.directorName || INSTITUTION.director}
                 </span>
               </div>
             </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handleTriggerPrint(previewModalDoc)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black text-white bg-gradient-to-b from-orange-500 to-amber-600 shadow-md active:translate-y-0.5 transition-all cursor-pointer"
-              >
-                <Printer className="w-4 h-4" />
-                <span>طباعة الوثيقة الآن</span>
-              </button>
-              <button
-                onClick={() => setPreviewModalDoc(null)}
-                className="text-slate-400 hover:text-white p-1 text-xl font-bold cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
           </div>
+        );
 
-          <div className="w-full max-w-4xl bg-slate-800/90 rounded-b-2xl p-4 md:p-6 overflow-y-auto max-h-[82vh] flex justify-center">
-            <div className="w-full max-w-[210mm] bg-white text-slate-900 p-6 shadow-2xl rounded-sm font-simplified-arabic border border-slate-300 min-h-[297mm]">
-              {/* Ministerial Header */}
-              <div className="text-center border-b-2 border-black pb-2 mb-3">
-                <h2 className="font-bold text-xs">{INSTITUTION.republic}</h2>
-                <h3 className="font-bold text-[11px] text-slate-800">{INSTITUTION.ministry}</h3>
-                <h3 className="font-bold text-xs text-black mt-0.5">{INSTITUTION.name}</h3>
-                <p className="text-[10px] text-slate-700">{INSTITUTION.deputyDirectorate} • مصلحة تنظيم الامتحانات والتقييم</p>
-                <div className="mt-1 inline-block border-2 border-black px-4 py-0.5 rounded font-black text-sm bg-slate-50">
-                  {previewModalDoc === 'continuous_control' 
-                    ? 'كشف نقاط المراقبة البيداغوجية المستمرة'
-                    : 'الكشف الإجمالي للنقاط البيداغوجية (المراقبة المستمرة + التربص التطبيقي + التخرج)'}
-                </div>
-              </div>
+        return (
+          <>
+            {/* ========================================================================= */}
+            {/* DEDICATED PRINT CONTAINER (#printable-official-document)                  */}
+            {/* ISOLATED & VISIBLE ONLY DURING PHYSICAL PRINTING (@media print)           */}
+            {/* ========================================================================= */}
+            <div id="printable-official-document" className="hidden print:block font-simplified-arabic text-black bg-white p-6 print-document">
+              {renderOfficialDocumentContent(activePrintDoc)}
+            </div>
 
-              {/* Administrative Subheader */}
-              <div className="grid grid-cols-2 gap-2 text-xs border border-black p-2 rounded mb-3 bg-slate-50">
-                <div><strong>الرتبة التكوينية:</strong> {currentRank.titleAr}</div>
-                <div><strong>الدورة التكوينية:</strong> {formatAcademicYear(currentSession?.academicYear || '2026/2027')}</div>
-                <div><strong>تعداد المتكونين:</strong> {candidates.length} متكون</div>
-                <div><strong>تاريخ استخراج الوثيقة:</strong> {formatArabicDate(new Date())}</div>
-              </div>
+            {/* ========================================================================= */}
+            {/* LIVE PRINT PREVIEW MODAL (A4 WITH DYNAMIC TITLE)                          */}
+            {/* ========================================================================= */}
+            {previewModalDoc && (
+              <div className="no-print fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex flex-col items-center justify-center p-3 md:p-6 overflow-y-auto">
+                <div className="w-full max-w-4xl bg-slate-900 text-white rounded-t-2xl p-4 flex items-center justify-between shadow-xl">
+                  <div className="flex items-center gap-2.5">
+                    <Eye className="w-5 h-5 text-orange-400" />
+                    <div>
+                      <h3 className="font-bold text-sm md:text-base font-cairo">
+                        {previewModalDoc === 'continuous_control' 
+                          ? `معاينة كشف المراقبة البيداغوجية المستمرة - ${currentRank.titleAr}`
+                          : `معاينة الكشف الإجمالي للنقاط البيداغوجية - ${currentRank.titleAr}`}
+                      </h3>
+                      <span className="text-[10px] text-slate-400">
+                        مخرجات رسمية معتمدة للطباعة المباشرة وحفظ PDF
+                      </span>
+                    </div>
+                  </div>
 
-              {/* Document Specific Table */}
-              {previewModalDoc === 'continuous_control' ? (
-                <div>
-                  <table className="w-full text-right text-[11px] border-collapse border border-black mb-4">
-                    <thead className="bg-slate-100 font-bold border-b border-black">
-                      <tr>
-                        <th className="border border-black p-1 text-center w-8">#</th>
-                        <th className="border border-black p-1 text-center w-20 font-mono">رقم التسجيل</th>
-                        <th className="border border-black p-1">اللقب والاسم الكامل</th>
-                        <th className="border border-black p-1 text-center w-14">الفوج</th>
-                        {rankModules.map(m => (
-                          <th key={m.id} className="border border-black p-1 text-center text-[10px]">
-                            <div>{m.code}</div>
-                            <span className="font-mono">م{m.coefficient}</span>
-                          </th>
-                        ))}
-                        <th className="border border-black p-1 text-center font-mono w-16">المجموع</th>
-                        <th className="border border-black p-1 text-center font-mono w-16 bg-slate-200">المعدل</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {candidates.map((c, idx) => {
-                        const cGrades = moduleGradesDraft[c.id] || {};
-                        const ccRes = calculateCandidateCC(c.id);
-
-                        return (
-                          <tr key={c.id} className="border-b border-black">
-                            <td className="border border-black p-1 text-center font-mono">{idx + 1}</td>
-                            <td className="border border-black p-1 text-center font-mono font-bold">{c.registrationNumber}</td>
-                            <td className="border border-black p-1 font-bold">{c.fullName}</td>
-                            <td className="border border-black p-1 text-center font-mono text-[10px]">{c.groupNumber || '01'}</td>
-                            {rankModules.map(m => {
-                              const v = cGrades[m.id];
-                              return (
-                                <td key={m.id} className="border border-black p-1 text-center font-mono text-[10px]">
-                                  {typeof v === 'number' ? v.toFixed(1) : '—'}
-                                </td>
-                              );
-                            })}
-                            <td className="border border-black p-1 text-center font-mono font-bold">
-                              {ccRes.weightedSum > 0 ? ccRes.weightedSum.toFixed(1) : '—'}
-                            </td>
-                            <td className="border border-black p-1 text-center font-mono font-bold bg-slate-50">
-                              {ccRes.average !== null ? ccRes.average.toFixed(2) : '—'}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                  <div className="text-[10px] text-slate-600 mb-6">
-                    * الرموز أعلاه تمثل المقاييس الرسمية المعتمدة للرتبة، والقاسم الإجمالي لحساب المعدل هو مجموع المعاملات ({totalCoefficients}).
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleTriggerPrint(previewModalDoc)}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black text-white bg-gradient-to-b from-orange-500 to-amber-600 shadow-md active:translate-y-0.5 transition-all cursor-pointer"
+                    >
+                      <Printer className="w-4 h-4" />
+                      <span>طباعة الوثيقة الآن</span>
+                    </button>
+                    <button
+                      onClick={() => setPreviewModalDoc(null)}
+                      className="text-slate-400 hover:text-white p-1 text-xl font-bold cursor-pointer"
+                    >
+                      ✕
+                    </button>
                   </div>
                 </div>
-              ) : (
-                <div>
-                  <table className="w-full text-right text-xs border-collapse border border-black mb-6">
-                    <thead className="bg-slate-100 font-bold border-b border-black">
-                      <tr>
-                        <th className="border border-black p-1.5 text-center w-10">#</th>
-                        <th className="border border-black p-1.5 text-center w-24 font-mono">رقم التسجيل</th>
-                        <th className="border border-black p-1.5">اللقب والاسم الكامل</th>
-                        <th className="border border-black p-1.5 text-center w-16">الفوج</th>
-                        <th className="border border-black p-1.5 text-center w-24">مراقبة مستمرة (م1)</th>
-                        <th className="border border-black p-1.5 text-center w-24">تربص تطبيقي (م1)</th>
-                        <th className="border border-black p-1.5 text-center w-28">{deliverableInfo.type === 'memoir' ? 'المذكرة' : 'التقرير'} (م{deliverableInfo.coeff})</th>
-                        <th className="border border-black p-1.5 text-center w-24 bg-slate-200">المعدل الجزئي</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {candidates.map((c, idx) => {
-                        const ccRes = calculateCandidateCC(c.id);
-                        const intern = internshipGradesDraft[c.id];
-                        const mem = memoirGradesDraft[c.id];
 
-                        let s = 0;
-                        let cf = 0;
-                        if (ccRes.average !== null) { s += ccRes.average * 1; cf += 1; }
-                        if (typeof intern === 'number') { s += intern * 1; cf += 1; }
-                        if (typeof mem === 'number') { s += mem * deliverableInfo.coeff; cf += deliverableInfo.coeff; }
-
-                        const partAvg = cf > 0 ? (s / cf).toFixed(2) : '—';
-
-                        return (
-                          <tr key={c.id} className="border-b border-black">
-                            <td className="border border-black p-1.5 text-center font-mono">{idx + 1}</td>
-                            <td className="border border-black p-1.5 text-center font-mono font-bold">{c.registrationNumber}</td>
-                            <td className="border border-black p-1.5 font-bold">{c.fullName}</td>
-                            <td className="border border-black p-1.5 text-center font-mono text-[11px]">{c.groupNumber || '01'}</td>
-                            <td className="border border-black p-1.5 text-center font-mono font-bold">
-                              {ccRes.average !== null ? ccRes.average.toFixed(2) : '—'}
-                            </td>
-                            <td className="border border-black p-1.5 text-center font-mono font-bold">
-                              {typeof intern === 'number' ? intern.toFixed(2) : '—'}
-                            </td>
-                            <td className="border border-black p-1.5 text-center font-mono font-bold">
-                              {typeof mem === 'number' ? mem.toFixed(2) : '—'}
-                            </td>
-                            <td className="border border-black p-1.5 text-center font-mono font-bold bg-slate-50">
-                              {partAvg}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* Signatures & Seal */}
-              <div className="grid grid-cols-2 gap-8 text-center text-xs pt-4 border-t-2 border-black mt-auto">
-                <div>
-                  <span className="font-bold block">مصلحة تنظيم الامتحانات والتقييم</span>
-                  <span className="text-[10px] text-slate-600">التدقيق والمطابقة الحسابية</span>
-                  <div className="h-14"></div>
-                  <span className="font-bold">التوقيع والتأشيرة</span>
-                </div>
-                <div>
-                  <span className="font-bold block">مدير المعهد الوطني ورئيس المركز</span>
-                  <span className="text-[10px] text-slate-600">الاعتماد والمصادقة النهائية</span>
-                  <div className="h-14"></div>
-                  <span className="font-bold text-slate-900">
-                    {dbState.institutionSettings?.directorName || INSTITUTION.director}
-                  </span>
+                <div className="w-full max-w-4xl bg-slate-800/90 rounded-b-2xl p-4 md:p-6 overflow-y-auto max-h-[82vh] flex justify-center">
+                  <div className="w-full max-w-[210mm] bg-white text-slate-900 p-6 shadow-2xl rounded-sm font-simplified-arabic border border-slate-300 min-h-[297mm]">
+                    {renderOfficialDocumentContent(previewModalDoc)}
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 };

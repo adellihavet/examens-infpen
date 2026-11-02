@@ -658,21 +658,34 @@ export const SchedulerView: React.FC<SchedulerViewProps> = ({
           </div>
 
           <div className="print-document max-w-[850px] mx-auto bg-white border-2 border-slate-900 p-8 shadow-xl font-simplified-arabic text-black print:shadow-none print:border-none print:p-0">
-            {/* 5-Line Official Ministerial Header */}
-            <div className="text-center border-b-2 border-slate-900 pb-3 mb-4 leading-snug">
-              <p className="text-xs font-bold text-slate-900">{INSTITUTION.republic}</p>
-              <p className="text-xs font-bold text-slate-900">{INSTITUTION.ministry}</p>
-              <h1 className="text-sm md:text-base font-bold text-slate-950 mt-0.5 print-bold">
-                {INSTITUTION.name}
-              </h1>
-              <p className="text-xs font-semibold text-slate-800 mt-0.5">
-                {INSTITUTION.deputyDirectorate}
-              </p>
-              <p className="text-xs font-bold text-slate-900 mt-0.5 print-bold">
-                {INSTITUTION.service}
-              </p>
-              <div className="inline-block bg-slate-900 text-white text-xs font-bold px-4 py-1 rounded-full mt-2 print-bold">
-                رزنامة سير الاختبارات الكتابية لنهاية التكوين
+            {/* 5-Line Official Ministerial Header with Black Institute Logo */}
+            <div className="border-b-2 border-slate-900 pb-3 mb-4 leading-snug">
+              <div className="flex items-center justify-between">
+                <div className="text-right flex-1">
+                  <p className="text-xs font-bold text-slate-900">{INSTITUTION.republic}</p>
+                  <p className="text-xs font-bold text-slate-900">{INSTITUTION.ministry}</p>
+                  <h1 className="text-sm md:text-base font-bold text-slate-950 mt-0.5 print-bold">
+                    {INSTITUTION.name}
+                  </h1>
+                  <p className="text-xs font-semibold text-slate-800 mt-0.5">
+                    {INSTITUTION.deputyDirectorate}
+                  </p>
+                  <p className="text-xs font-bold text-slate-900 mt-0.5 print-bold">
+                    {INSTITUTION.service}
+                  </p>
+                </div>
+                <div className="shrink-0 pl-3">
+                  <img 
+                    src={INSTITUTION.logoBlack} 
+                    alt="شعار المعهد" 
+                    className="h-16 w-auto object-contain filter contrast-125"
+                  />
+                </div>
+              </div>
+              <div className="text-center mt-2">
+                <div className="inline-block bg-slate-900 text-white text-xs font-bold px-4 py-1 rounded-full print-bold">
+                  رزنامة سير الاختبارات الكتابية لنهاية التكوين
+                </div>
               </div>
             </div>
 
@@ -773,21 +786,34 @@ export const SchedulerView: React.FC<SchedulerViewProps> = ({
           </div>
 
           <div className="print-document max-w-[950px] mx-auto bg-white border-2 border-slate-900 p-8 shadow-xl font-simplified-arabic text-black print:shadow-none print:border-none print:p-0">
-            {/* 5-Line Official Ministerial Header */}
-            <div className="text-center border-b-2 border-slate-900 pb-3 mb-4 leading-snug">
-              <p className="text-xs font-bold text-slate-900">{INSTITUTION.republic}</p>
-              <p className="text-xs font-bold text-slate-900">{INSTITUTION.ministry}</p>
-              <h1 className="text-sm md:text-base font-bold text-slate-950 mt-0.5 print-bold">
-                {INSTITUTION.name}
-              </h1>
-              <p className="text-xs font-semibold text-slate-800 mt-0.5">
-                {INSTITUTION.deputyDirectorate}
-              </p>
-              <p className="text-xs font-bold text-slate-900 mt-0.5 print-bold">
-                {INSTITUTION.service}
-              </p>
-              <div className="inline-block bg-slate-900 text-white text-xs font-bold px-4 py-1 rounded-full mt-2 print-bold">
-                جدول تسخير الأساتذة والمؤطرين لحراسة الاختبارات الكتابية
+            {/* 5-Line Official Ministerial Header with Black Institute Logo */}
+            <div className="border-b-2 border-slate-900 pb-3 mb-4 leading-snug">
+              <div className="flex items-center justify-between">
+                <div className="text-right flex-1">
+                  <p className="text-xs font-bold text-slate-900">{INSTITUTION.republic}</p>
+                  <p className="text-xs font-bold text-slate-900">{INSTITUTION.ministry}</p>
+                  <h1 className="text-sm md:text-base font-bold text-slate-950 mt-0.5 print-bold">
+                    {INSTITUTION.name}
+                  </h1>
+                  <p className="text-xs font-semibold text-slate-800 mt-0.5">
+                    {INSTITUTION.deputyDirectorate}
+                  </p>
+                  <p className="text-xs font-bold text-slate-900 mt-0.5 print-bold">
+                    {INSTITUTION.service}
+                  </p>
+                </div>
+                <div className="shrink-0 pl-3">
+                  <img 
+                    src={INSTITUTION.logoBlack} 
+                    alt="شعار المعهد" 
+                    className="h-16 w-auto object-contain filter contrast-125"
+                  />
+                </div>
+              </div>
+              <div className="text-center mt-2">
+                <div className="inline-block bg-slate-900 text-white text-xs font-bold px-4 py-1 rounded-full print-bold">
+                  جدول تسخير الأساتذة والمؤطرين لحراسة الاختبارات الكتابية
+                </div>
               </div>
             </div>
 
@@ -891,21 +917,34 @@ export const SchedulerView: React.FC<SchedulerViewProps> = ({
 
           {selectedProctor ? (
             <div className="print-document max-w-[800px] mx-auto bg-white border-2 border-slate-900 p-8 shadow-xl font-simplified-arabic text-black print:shadow-none print:border-none print:p-0">
-              {/* 5-Line Official Ministerial Header */}
-              <div className="text-center border-b-2 border-slate-900 pb-3 mb-4 leading-snug">
-                <p className="text-xs font-bold text-slate-900">{INSTITUTION.republic}</p>
-                <p className="text-xs font-bold text-slate-900">{INSTITUTION.ministry}</p>
-                <h1 className="text-sm md:text-base font-bold text-slate-950 mt-0.5 print-bold">
-                  {INSTITUTION.name}
-                </h1>
-                <p className="text-xs font-semibold text-slate-800 mt-0.5">
-                  {INSTITUTION.deputyDirectorate}
-                </p>
-                <p className="text-xs font-bold text-slate-900 mt-0.5 print-bold">
-                  {INSTITUTION.service}
-                </p>
-                <div className="inline-block bg-slate-900 text-white text-xs font-bold px-5 py-1 rounded-full mt-2 print-bold">
-                  استدعاء لتأطير وحراسة الاختبارات الكتابية
+              {/* 5-Line Official Ministerial Header with Black Institute Logo */}
+              <div className="border-b-2 border-slate-900 pb-3 mb-4 leading-snug">
+                <div className="flex items-center justify-between">
+                  <div className="text-right flex-1">
+                    <p className="text-xs font-bold text-slate-900">{INSTITUTION.republic}</p>
+                    <p className="text-xs font-bold text-slate-900">{INSTITUTION.ministry}</p>
+                    <h1 className="text-sm md:text-base font-bold text-slate-950 mt-0.5 print-bold">
+                      {INSTITUTION.name}
+                    </h1>
+                    <p className="text-xs font-semibold text-slate-800 mt-0.5">
+                      {INSTITUTION.deputyDirectorate}
+                    </p>
+                    <p className="text-xs font-bold text-slate-900 mt-0.5 print-bold">
+                      {INSTITUTION.service}
+                    </p>
+                  </div>
+                  <div className="shrink-0 pl-3">
+                    <img 
+                      src={INSTITUTION.logoBlack} 
+                      alt="شعار المعهد" 
+                      className="h-16 w-auto object-contain filter contrast-125"
+                    />
+                  </div>
+                </div>
+                <div className="text-center mt-2">
+                  <div className="inline-block bg-slate-900 text-white text-xs font-bold px-5 py-1 rounded-full print-bold">
+                    استدعاء لتأطير وحراسة الاختبارات الكتابية
+                  </div>
                 </div>
               </div>
 

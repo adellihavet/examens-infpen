@@ -467,19 +467,41 @@ export const ExamConductView: React.FC<ExamConductViewProps> = ({
   }, [previewDocument, directPrintType, activeSubTab, attendanceMode, subDocType]);
 
   // =========================================================================
+  // =========================================================================
   // PURE REACT DOCUMENT RENDERER (Used by both Preview Modal & Print Sheet)
   // =========================================================================
   const renderDocumentContent = (docType: PrintableDocType) => {
+    // Official Algerian Administrative Header with Institute Black Logo for internal exam documents
+    const renderOfficialDocHeader = (subtitle?: string) => (
+      <div className="border-b-2 border-black pb-2 mb-3">
+        <div className="flex items-center justify-between">
+          <div className="text-right flex-1">
+            <h2 className="font-bold text-xs leading-tight">{INSTITUTION.republic}</h2>
+            <h3 className="font-bold text-[11px] text-slate-800 leading-tight">{INSTITUTION.ministry}</h3>
+            <h3 className="font-bold text-xs text-black mt-0.5 leading-tight">{INSTITUTION.name}</h3>
+            <p className="text-[10px] text-slate-700 font-semibold">{INSTITUTION.deputyDirectorate} • {INSTITUTION.service}</p>
+          </div>
+          <div className="shrink-0 pl-3">
+            <img 
+              src={INSTITUTION.logoBlack} 
+              alt="شعار المعهد" 
+              className="h-14 w-auto object-contain filter contrast-125"
+            />
+          </div>
+        </div>
+        {subtitle && (
+          <div className="text-center mt-1 border-t border-slate-300 pt-1">
+            <span className="text-[10px] text-slate-700 font-bold">{subtitle}</span>
+          </div>
+        )}
+      </div>
+    );
+
     if (docType === 'attendance_blank' || docType === 'attendance_final') {
       return (
         <div className="max-w-[210mm] mx-auto min-h-[297mm] flex flex-col justify-between font-simplified-arabic text-black bg-white p-4">
           <div>
-            <div className="text-center border-b-2 border-black pb-2 mb-3">
-              <h2 className="font-bold text-sm leading-tight">{INSTITUTION.republic}</h2>
-              <h3 className="font-bold text-xs text-slate-800 leading-tight">{INSTITUTION.ministry}</h3>
-              <h3 className="font-bold text-sm text-black mt-0.5 leading-tight">{INSTITUTION.name}</h3>
-              <p className="text-[11px] text-slate-700 font-semibold">{INSTITUTION.deputyDirectorate} • {INSTITUTION.service}</p>
-            </div>
+            {renderOfficialDocHeader()}
 
             <div className="text-center mb-3">
               <h1 className="text-base font-black border-2 border-black inline-block px-6 py-1 rounded bg-slate-50">
@@ -551,12 +573,7 @@ export const ExamConductView: React.FC<ExamConductViewProps> = ({
       return (
         <div className="max-w-[210mm] mx-auto min-h-[297mm] flex flex-col justify-between font-simplified-arabic text-black bg-white p-4">
           <div>
-            <div className="text-center border-b-2 border-black pb-2 mb-3">
-              <h2 className="font-bold text-sm leading-tight">{INSTITUTION.republic}</h2>
-              <h3 className="font-bold text-xs text-slate-800 leading-tight">{INSTITUTION.ministry}</h3>
-              <h3 className="font-bold text-sm text-black mt-0.5 leading-tight">{INSTITUTION.name}</h3>
-              <p className="text-[11px] text-slate-700 font-semibold">{INSTITUTION.deputyDirectorate} • {INSTITUTION.service}</p>
-            </div>
+            {renderOfficialDocHeader()}
 
             <div className="text-center mb-3">
               <h1 className="text-base font-black border-2 border-black inline-block px-6 py-1 rounded bg-slate-50">
@@ -646,12 +663,7 @@ export const ExamConductView: React.FC<ExamConductViewProps> = ({
       return (
         <div className="max-w-[210mm] mx-auto min-h-[297mm] flex flex-col justify-between font-simplified-arabic text-black bg-white p-4">
           <div>
-            <div className="text-center border-b-2 border-black pb-2 mb-4">
-              <h2 className="font-bold text-sm leading-tight">{INSTITUTION.republic}</h2>
-              <h3 className="font-bold text-xs text-slate-800 leading-tight">{INSTITUTION.ministry}</h3>
-              <h3 className="font-bold text-sm text-black mt-0.5 leading-tight">{INSTITUTION.name}</h3>
-              <p className="text-[11px] text-slate-700 font-semibold">{INSTITUTION.deputyDirectorate} • {INSTITUTION.service}</p>
-            </div>
+            {renderOfficialDocHeader()}
 
             <div className="text-center mb-4">
               <h1 className="text-base font-black border-2 border-black inline-block px-6 py-1 rounded bg-slate-50">
@@ -704,12 +716,7 @@ export const ExamConductView: React.FC<ExamConductViewProps> = ({
     if (docType === 'envelope') {
       return (
         <div className="max-w-[210mm] mx-auto p-4 border-4 border-black rounded-xl font-simplified-arabic text-black bg-white">
-          <div className="text-center border-b-2 border-black pb-2 mb-3">
-            <h2 className="font-bold text-sm leading-tight">{INSTITUTION.republic}</h2>
-            <h3 className="font-bold text-xs text-slate-800 leading-tight">{INSTITUTION.ministry}</h3>
-            <h3 className="font-bold text-sm text-black mt-0.5 leading-tight">{INSTITUTION.name}</h3>
-            <p className="text-[11px] text-slate-700 font-semibold">{INSTITUTION.deputyDirectorate} • {INSTITUTION.service}</p>
-          </div>
+          {renderOfficialDocHeader()}
 
           <div className="text-center my-3">
             <span className="inline-block bg-black text-white font-bold text-sm px-6 py-1 rounded mb-2">
@@ -751,18 +758,7 @@ export const ExamConductView: React.FC<ExamConductViewProps> = ({
       return (
         <div className="max-w-[210mm] mx-auto min-h-[297mm] font-simplified-arabic text-black bg-white p-3">
           {/* Header */}
-          <div className="text-center border-b-2 border-black pb-2 mb-3">
-            <h2 className="font-bold text-xs leading-tight">{INSTITUTION.republic}</h2>
-            <h3 className="font-bold text-[11px] text-slate-800 leading-tight">{INSTITUTION.ministry}</h3>
-            <h3 className="font-bold text-xs text-black mt-0.5 leading-tight">{INSTITUTION.name}</h3>
-            <p className="text-[10px] text-slate-700 font-semibold">{INSTITUTION.deputyDirectorate} • {INSTITUTION.service}</p>
-            <div className="mt-1 flex items-center justify-between text-[11px] font-bold border-t border-slate-300 pt-1">
-              <span>ملصقات طاولات المترشحين (Étiquettes de Tables)</span>
-              <span>الرتبة: {currentRank.titleAr}</span>
-              <span>القاعة: {envelopeRoomName}</span>
-              <span>تعداد القاعة: {roomCandidates.length} متكوناً</span>
-            </div>
-          </div>
+          {renderOfficialDocHeader(`ملصقات طاولات المترشحين (Étiquettes de Tables) • الرتبة: ${currentRank.titleAr} • القاعة: ${envelopeRoomName} • تعداد القاعة: ${roomCandidates.length} متكوناً`)}
 
           {/* Grid of Desk Cards (2 columns x 3 rows = 6 cards per page) */}
           <div className="grid grid-cols-2 gap-3 text-right">
@@ -776,11 +772,18 @@ export const ExamConductView: React.FC<ExamConductViewProps> = ({
                   <span>✂ قص الملصق</span>
                 </div>
 
-                {/* Top Badge & Header */}
+                {/* Top Badge & Header with Black Logo */}
                 <div className="flex items-start justify-between border-b border-black pb-1.5 mb-1.5">
-                  <div>
-                    <h4 className="font-bold text-[10px] leading-tight text-slate-900">{INSTITUTION.name}</h4>
-                    <span className="text-[9px] text-slate-600 block">امتحان التكوين المتخصص • دورة {formatAcademicYear(currentSession?.academicYear || '2026 / 2027')}</span>
+                  <div className="flex items-center gap-1.5">
+                    <img 
+                      src={INSTITUTION.logoBlack} 
+                      alt="INFPE" 
+                      className="w-5 h-5 object-contain filter contrast-125"
+                    />
+                    <div>
+                      <h4 className="font-bold text-[10px] leading-tight text-slate-900">{INSTITUTION.name}</h4>
+                      <span className="text-[9px] text-slate-600 block">امتحان نهاية التكوين • دورة {formatAcademicYear(currentSession?.academicYear || '2026 / 2027')}</span>
+                    </div>
                   </div>
                   <div className="bg-black text-white px-2 py-0.5 rounded text-xs font-black text-center min-w-[70px]">
                     طاولة رقم {String(idx + 1).padStart(2, '0')}
@@ -858,13 +861,7 @@ export const ExamConductView: React.FC<ExamConductViewProps> = ({
       return (
         <div className="max-w-[210mm] mx-auto min-h-[297mm] flex flex-col justify-between font-simplified-arabic text-black bg-white p-5 border-4 border-black rounded-lg">
           <div>
-            {/* Institutional Header */}
-            <div className="text-center border-b-2 border-black pb-2 mb-3">
-              <h2 className="font-bold text-sm leading-tight">{INSTITUTION.republic}</h2>
-              <h3 className="font-bold text-xs text-slate-800 leading-tight">{INSTITUTION.ministry}</h3>
-              <h3 className="font-bold text-sm text-black mt-0.5 leading-tight">{INSTITUTION.name}</h3>
-              <p className="text-[11px] text-slate-700 font-semibold">{INSTITUTION.deputyDirectorate} • {INSTITUTION.service}</p>
-            </div>
+            {renderOfficialDocHeader()}
 
             {/* Title Banner */}
             <div className="text-center mb-3">
@@ -979,17 +976,7 @@ export const ExamConductView: React.FC<ExamConductViewProps> = ({
       return (
         <div className="max-w-[210mm] mx-auto min-h-[297mm] font-simplified-arabic text-black bg-white p-3">
           {/* Header */}
-          <div className="text-center border-b-2 border-black pb-2 mb-3">
-            <h2 className="font-bold text-xs leading-tight">{INSTITUTION.republic}</h2>
-            <h3 className="font-bold text-[11px] text-slate-800 leading-tight">{INSTITUTION.ministry}</h3>
-            <h3 className="font-bold text-xs text-black mt-0.5 leading-tight">{INSTITUTION.name}</h3>
-            <p className="text-[10px] text-slate-700 font-semibold">{INSTITUTION.deputyDirectorate} • {INSTITUTION.service}</p>
-            <div className="mt-1 flex items-center justify-between text-[11px] font-bold border-t border-slate-300 pt-1">
-              <span>شارات الصدر الرسمية للمؤطرين (Badges Officiels d'Encadrement)</span>
-              <span>دورة: {formatAcademicYear(currentSession?.academicYear || '2026 / 2027')}</span>
-              <span>مركز الامتحان: معهد الأغواط</span>
-            </div>
-          </div>
+          {renderOfficialDocHeader(`شارات الصدر الرسمية للمؤطرين (Badges Officiels d'Encadrement) • دورة: ${formatAcademicYear(currentSession?.academicYear || '2026 / 2027')} • مركز الامتحان: معهد الأغواط`)}
 
           {/* Badges Grid (2 columns x 4 rows) */}
           <div className="grid grid-cols-2 gap-3 text-right">
@@ -1003,10 +990,26 @@ export const ExamConductView: React.FC<ExamConductViewProps> = ({
                   <span>✂ قص الشارة</span>
                 </div>
 
-                {/* Badge Top Header */}
-                <div className="bg-slate-900 text-white text-center py-1 px-2 rounded-t-lg -mx-3 -mt-3 mb-2">
-                  <div className="text-[9px] font-bold leading-tight">الجمهورية الجزائرية الديمقراطية الشعبية</div>
-                  <div className="text-[10px] font-black text-amber-300">{INSTITUTION.name}</div>
+                {/* Badge Top Header with Golden Logo */}
+                <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 text-white py-1.5 px-2.5 rounded-t-lg -mx-3 -mt-3 mb-2 flex items-center justify-between border-b border-amber-500/40">
+                  <div className="w-8 shrink-0 flex justify-center">
+                    <img 
+                      src={INSTITUTION.logoGold} 
+                      alt="INFPE" 
+                      className="w-7 h-7 object-contain drop-shadow" 
+                    />
+                  </div>
+                  <div className="text-center flex-1">
+                    <div className="text-[8px] font-bold leading-tight text-slate-200">{INSTITUTION.republic}</div>
+                    <div className="text-[9.5px] font-black text-amber-300 leading-tight">{INSTITUTION.name}</div>
+                  </div>
+                  <div className="w-8 shrink-0 flex justify-center">
+                    <img 
+                      src={INSTITUTION.logoGold} 
+                      alt="INFPE" 
+                      className="w-7 h-7 object-contain drop-shadow opacity-90" 
+                    />
+                  </div>
                 </div>
 
                 <div className="flex gap-3 items-center my-auto">
@@ -1065,13 +1068,8 @@ export const ExamConductView: React.FC<ExamConductViewProps> = ({
       return (
         <div className="max-w-[210mm] mx-auto min-h-[297mm] flex flex-col justify-between font-simplified-arabic text-black bg-white p-4">
           <div>
-            {/* Institutional Header */}
-            <div className="text-center border-b-2 border-black pb-2 mb-3">
-              <h2 className="font-bold text-sm leading-tight">{INSTITUTION.republic}</h2>
-              <h3 className="font-bold text-xs text-slate-800 leading-tight">{INSTITUTION.ministry}</h3>
-              <h3 className="font-bold text-sm text-black mt-0.5 leading-tight">{INSTITUTION.name}</h3>
-              <p className="text-[11px] text-slate-700 font-semibold">{INSTITUTION.deputyDirectorate} • {INSTITUTION.service}</p>
-            </div>
+            {/* Institutional Header with Black Logo */}
+            {renderOfficialDocHeader()}
 
             {/* Title */}
             <div className="text-center mb-3">
@@ -1182,13 +1180,8 @@ export const ExamConductView: React.FC<ExamConductViewProps> = ({
                 }`}
               >
                 <div>
-                  {/* Institutional Header */}
-                  <div className="text-center border-b-2 border-black pb-2 mb-3">
-                    <h2 className="font-bold text-sm leading-tight">{INSTITUTION.republic}</h2>
-                    <h3 className="font-bold text-xs text-slate-800 leading-tight">{INSTITUTION.ministry}</h3>
-                    <h3 className="font-bold text-sm text-black mt-0.5 leading-tight">{INSTITUTION.name}</h3>
-                    <p className="text-[11px] text-slate-700 font-semibold">{INSTITUTION.deputyDirectorate} • {INSTITUTION.service}</p>
-                  </div>
+                  {/* Institutional Header with Black Logo */}
+                  {renderOfficialDocHeader()}
 
                   {/* Title Banner */}
                   <div className="text-center mb-3">
