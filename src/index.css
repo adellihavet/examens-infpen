@@ -104,6 +104,10 @@
     box-shadow: none !important;
   }
 
+  .official-exam-outer-frame {
+    border: 2px solid black !important;
+  }
+
   body,
   table,
   th,

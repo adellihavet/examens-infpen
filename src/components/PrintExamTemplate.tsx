@@ -2,7 +2,7 @@ import React from 'react';
 import { Printer, Scale, AlertCircle } from 'lucide-react';
 import type { ExamSubject } from '../db/sqlite-manager';
 import { INSTITUTION } from '../constants/branding';
-import { formatArabicDate } from '../utils/date-formatter';
+import { formatArabicDate, formatAcademicYear } from '../utils/date-formatter';
 
 interface PrintExamTemplateProps {
   subject: ExamSubject;
@@ -48,99 +48,118 @@ export const PrintExamTemplate: React.FC<PrintExamTemplateProps> = ({
         </div>
       </div>
 
-      {/* Printable Sheet (Standard A4 Container) with Simplified Arabic Print Typography */}
-      <div className="print-document max-w-[820px] mx-auto bg-white border-2 border-slate-400 rounded-xl p-8 md:p-10 shadow-2xl print:shadow-none print:border-none print:p-0 min-h-[1100px] flex flex-col justify-between">
-        <div>
-          {/* Official 5-Line Ministerial Header */}
-          <div className="text-center border-b-2 border-slate-900 pb-3 mb-5 leading-snug">
-            <p className="text-xs font-bold text-slate-800">{INSTITUTION.republic}</p>
-            <p className="text-xs font-bold text-slate-800">{INSTITUTION.ministry}</p>
-            <h1 className="text-sm md:text-base font-bold text-slate-950 mt-0.5 print-bold">
-              {INSTITUTION.name}
-            </h1>
-            <p className="text-xs font-semibold text-slate-800 mt-0.5">
-              {INSTITUTION.deputyDirectorate}
-            </p>
-            <p className="text-xs font-bold text-slate-900 mt-0.5 print-bold">
-              {INSTITUTION.service}
-            </p>
-          </div>
-
-          {/* Exam Identification Box */}
-          <div className="border border-slate-400 rounded-lg p-3.5 bg-slate-50/70 mb-5 text-xs text-slate-800">
-            <div className="grid grid-cols-2 gap-y-2 gap-x-4">
-              <div>
-                <span className="text-slate-500 font-semibold">الدورة التكوينية:</span>{' '}
-                <strong className="text-slate-950">{sessionTitle}</strong>
-              </div>
-              <div>
-                <span className="text-slate-500 font-semibold">الرتبة / الشعبة:</span>{' '}
-                <strong className="text-emerald-900">{specialtyTitle}</strong>
-              </div>
-              <div className="col-span-2">
-                <span className="text-slate-500 font-semibold">موضوع الاختبار في مقياس:</span>{' '}
-                <strong className="text-slate-950 text-sm font-bold">{subject.title}</strong>
-              </div>
-              <div className="flex items-center gap-6 col-span-2 pt-2 border-t border-slate-300">
-                <span>المدة: <strong className="font-mono-code text-slate-950">{subject.duration}</strong></span>
-                <span>المعامل: <strong className="font-mono-code text-slate-950">{subject.coefficient}</strong></span>
-                <span>تاريخ الاختبار: <strong className="font-mono-code text-slate-950">{formatArabicDate(subject.examDate)}</strong></span>
-                <span className="mr-auto text-[11px] text-slate-500 font-mono-code">كود: COD-{subject.id.slice(-6)}</span>
-              </div>
+      {/* Printable Sheet (Standard A4 Container) with Official Algerian Exam Layout */}
+      <div className="print-document max-w-[820px] mx-auto bg-white border-2 border-black official-exam-outer-frame rounded-none p-6 md:p-8 shadow-2xl print:shadow-none min-h-[1050px] flex flex-col justify-between font-simplified-arabic text-black">
+        <div className="flex flex-col flex-1">
+          {/* 1. Official Header (Exact replica of PDF: Centered Republic & Ministry, Right-aligned Direction & Institute) */}
+          <div className="mb-2">
+            <div className="text-center font-bold text-xs md:text-sm leading-snug">
+              <p className="font-bold">{INSTITUTION.republic}</p>
+              <p className="font-bold mt-0.5">{INSTITUTION.ministry}</p>
+            </div>
+            <div className="text-right font-bold text-xs leading-tight mt-1 space-y-0.5 text-black">
+              <p>مديرية التكوين</p>
+              <p>المعهد الوطني لتكوين موظفي قطاع التربية الوطنية</p>
+              <p>&quot; الشيخ زاهية حسين &quot; الأغواط</p>
             </div>
           </div>
 
-          {/* Important Instructions Box */}
-          {subject.instructions && (
-            <div className="border-r-4 border-amber-600 bg-amber-50/80 p-3 rounded-l-lg mb-6 text-xs text-amber-950 leading-relaxed font-medium">
-              <strong className="text-amber-900 block mb-1">تعليمات وتوجيهات تنظيمية هامة للمترشح:</strong>
-              {subject.instructions}
-            </div>
-          )}
+          {/* 2. Official Exam Identification Table (Exact replica of PDF) */}
+          <table className="w-full border-2 border-black border-collapse text-xs mb-2">
+            <tbody>
+              {/* Row 1: Session Exam Header (Right) & Academic Year (Left) */}
+              <tr className="border-b-2 border-black">
+                <td className="border-l-2 border-black p-2 font-black text-center text-sm md:text-base w-2/3">
+                  إمتحــــــــــــــــــان نهاية التكوين المتخصص
+                </td>
+                <td className="p-2 font-bold text-center w-1/3 text-xs md:text-sm">
+                  السنة التكوينية : <span className="font-mono">{formatAcademicYear(sessionTitle)}</span>
+                </td>
+              </tr>
 
-          {/* Exam Questions & Content Body */}
-          <div className="text-sm text-slate-900 leading-relaxed font-sans whitespace-pre-line text-justify space-y-4 pt-2">
-            {subject.content}
+              {/* Row 2: Rank (الرتبة) spanning full width */}
+              <tr className="border-b-2 border-black">
+                <td colSpan={2} className="p-2 font-bold text-right text-xs md:text-sm">
+                  <span>الرتبة : </span>
+                  <span className="font-black mr-2">{specialtyTitle}</span>
+                </td>
+              </tr>
+
+              {/* Row 3: Module on Right, Date & Time stacked on Left */}
+              <tr>
+                {/* Right Column: Module */}
+                <td className="border-l-2 border-black p-2.5 align-middle text-right">
+                  <div className="font-bold flex items-baseline gap-2">
+                    <span className="shrink-0 text-xs">المقياس :</span>
+                    <span className="font-black text-sm">{subject.title}</span>
+                  </div>
+                </td>
+
+                {/* Left Column: Stacked Date & Duration */}
+                <td className="p-0 align-top">
+                  <div className="border-b border-black p-1.5 font-bold text-right flex items-center justify-between text-xs">
+                    <span>التاريخ:</span>
+                    <span className="font-mono">{formatArabicDate(subject.examDate)}</span>
+                  </div>
+                  <div className="p-1.5 font-bold text-right flex items-center justify-between text-xs">
+                    <span>التوقيت :</span>
+                    <span className="font-mono">{subject.duration}</span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* 3. Main Exam Subject Framing Box (Exact replica of PDF) */}
+          <div className="border-2 border-black flex-1 p-4 my-1 min-h-[440px] text-justify text-xs md:text-sm leading-relaxed overflow-hidden bg-white flex flex-col justify-between">
+            <div>
+              {/* Important Instructions if any */}
+              {subject.instructions && (
+                <div className="border-r-4 border-black bg-slate-100 p-2 rounded-l mb-3 text-xs text-black leading-relaxed font-bold">
+                  <span className="block mb-0.5 text-black">توجيهات وتعليمات هامة للمترشح:</span>
+                  <p className="font-normal text-slate-800 text-[11px]">{subject.instructions}</p>
+                </div>
+              )}
+
+              {/* Exam Content */}
+              <div 
+                className="text-sm text-black leading-relaxed whitespace-pre-line text-justify space-y-4"
+                dangerouslySetInnerHTML={{ __html: subject.content }}
+              />
+
+              {/* Grading Rubric if included */}
+              {subject.gradingScale && (
+                <div className="mt-8 pt-4 border-t-2 border-dashed border-slate-400">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800 mb-2">
+                    <Scale className="w-4 h-4 text-emerald-700" />
+                    <span>سلم التنقيط التحليلي المعتمد (Barème de Notation Officiel):</span>
+                  </div>
+                  <pre className="bg-slate-50 p-4 rounded-lg border border-slate-300 text-xs font-mono text-slate-800 whitespace-pre-wrap leading-relaxed">
+                    {subject.gradingScale}
+                  </pre>
+                </div>
+              )}
+            </div>
           </div>
-
-          {/* Grading Rubric (Barème) if available */}
-          {subject.gradingScale && (
-            <div className="mt-8 pt-4 border-t-2 border-dashed border-slate-300">
-              <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800 mb-2">
-                <Scale className="w-4 h-4 text-emerald-700" />
-                <span>سلم التنقيط التحليلي المعتمد (Barème de Notation Officiel):</span>
-              </div>
-              <pre className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-xs font-mono-code text-slate-800 whitespace-pre-wrap leading-relaxed">
-                {subject.gradingScale}
-              </pre>
-            </div>
-          )}
         </div>
 
-        {/* Official Footer & Signatures Block */}
-        <div className="mt-10 pt-4 border-t-2 border-slate-900">
-          <div className="grid grid-cols-3 gap-4 text-center text-xs text-slate-700 mb-4">
-            <div>
-              <p className="font-bold">أستاذ المقياس / اللجنة البيداغوجية</p>
-              <div className="h-12 flex items-end justify-center text-[11px] text-slate-400">التوقيع: .....................</div>
-            </div>
-            <div>
-              <p className="font-bold">{INSTITUTION.serviceHeadTitle}</p>
-              <div className="h-12 flex items-end justify-center text-[11px] text-slate-400">التأشيرة والخاتم: .........</div>
-            </div>
-            <div>
-              <p className="font-bold">{INSTITUTION.directorTitle}</p>
-              <p className="text-[11px] font-semibold text-slate-600">{INSTITUTION.director}</p>
-              <div className="h-10 flex items-end justify-center text-[11px] text-slate-400">الختم والتوقيع الرسمي</div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono-code pt-2 border-t border-slate-200">
-            <span>INFPE-LAGHOUAT // ORG-EXAMS // V2025</span>
-            <span className="font-bold text-slate-800 print-bold text-xs">— بالتوفيق والنجاح لجميع المترشحين —</span>
-            <span>صفحة 1 من 1</span>
-          </div>
-        </div>
+        {/* 4. Official Bottom Table Footer (Exact replica of PDF: Professor, Page 1/1, Best of luck) */}
+        <table className="w-full border-2 border-black border-collapse text-xs mt-2">
+          <tbody>
+            <tr>
+              <td className="border-l-2 border-black p-2 font-bold text-right w-1/2">
+                <span>أستاذ(ة) المقياس : </span>
+                <span className="font-mono text-xs">...................................................</span>
+              </td>
+              <td className="border-l-2 border-black p-2 font-bold font-mono text-center w-1/5">
+                ص 1/1
+              </td>
+              <td className="p-2 font-black text-center w-[30%] text-sm">
+                بالتــــــــــــــــــــــــــــــوفيق
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );

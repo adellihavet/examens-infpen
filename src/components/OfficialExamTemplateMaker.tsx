@@ -124,6 +124,13 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
   // Toast notifications
   const [notification, setNotification] = useState<{ type: 'success' | 'warning' | 'info'; message: string } | null>(null);
 
+  // Dynamic Table Modal & Generator States
+  const [isTableModalOpen, setIsTableModalOpen] = useState<boolean>(false);
+  const [tableRows, setTableRows] = useState<number>(3);
+  const [tableCols, setTableCols] = useState<number>(3);
+  const [tableHasHeader, setTableHasHeader] = useState<boolean>(true);
+  const [hoverGrid, setHoverGrid] = useState<{ rows: number; cols: number }>({ rows: 3, cols: 3 });
+
   // Question Bank search & filter
   const [bankSearchTerm, setBankSearchTerm] = useState<string>('');
 
@@ -239,22 +246,31 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
     e.target.value = '';
   };
 
-  // Insert Table: STRICTLY 3x3 ONLY (arbitrary creation prevented as required)
-  const handleInsertTable = () => {
-    const fixedRows = 3;
-    const fixedCols = 3;
+  // Insert Custom Table with user-chosen rows, columns, and header
+  const handleInsertCustomTable = (rows: number = tableRows, cols: number = tableCols, withHeader: boolean = tableHasHeader) => {
+    const validRows = Math.max(1, Math.min(30, rows));
+    const validCols = Math.max(1, Math.min(12, cols));
+    
     if (!editorRef.current) return;
     editorRef.current.focus();
 
-    let tableHtml = `<table style="width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13pt; text-align: right;" border="1"><thead><tr style="background-color: #f1f5f9;">`;
-    for (let c = 0; c < fixedCols; c++) {
-      tableHtml += `<th style="border: 1px solid #000; padding: 6px 10px;">عنوان العمود ${c + 1}</th>`;
+    let tableHtml = `<table style="width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 12pt; text-align: center; border: 1px solid #000;" border="1">`;
+    
+    let startRow = 0;
+    if (withHeader) {
+      tableHtml += `<thead><tr style="background-color: #f1f5f9; font-weight: bold;">`;
+      for (let c = 0; c < validCols; c++) {
+        tableHtml += `<th style="border: 1px solid #000; padding: 6px 10px; font-weight: bold; background: #e2e8f0;">عمود ${c + 1}</th>`;
+      }
+      tableHtml += `</tr></thead>`;
+      startRow = 1;
     }
-    tableHtml += `</tr></thead><tbody>`;
-    for (let r = 0; r < fixedRows; r++) {
+
+    tableHtml += `<tbody>`;
+    for (let r = startRow; r < validRows; r++) {
       tableHtml += `<tr>`;
-      for (let c = 0; c < fixedCols; c++) {
-        tableHtml += `<td style="border: 1px solid #000; padding: 6px 10px;">خلية ${r + 1}-${c + 1}</td>`;
+      for (let c = 0; c < validCols; c++) {
+        tableHtml += `<td style="border: 1px solid #000; padding: 6px 10px;">خلية ${r + (withHeader ? 0 : 1)},${c + 1}</td>`;
       }
       tableHtml += `</tr>`;
     }
@@ -264,7 +280,11 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
     if (editorRef.current) {
       setEditorContent(editorRef.current.innerHTML);
     }
-    setNotification({ type: 'success', message: 'تم إدراج جدول رسمي ثابت (3×3) بنجاح!' });
+    setIsTableModalOpen(false);
+    setNotification({ 
+      type: 'success', 
+      message: `✓ تم إدراج جدول مخصص (${validRows} صفوف × ${validCols} أعمدة) بنجاح!` 
+    });
   };
 
   // Insert Quick Snippets
@@ -534,7 +554,7 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
               صياغة ونمذجة مواضيع الامتحانات وبنك الأسئلة
             </h1>
             <p className="text-xs md:text-sm text-slate-300 max-w-3xl leading-relaxed">
-              مساحة عمل كأنها صفحة Microsoft Word حقيقية: لصق الموضوع المستلم من الأستاذ، تنسيق الخطوط والمقاييس، إدراج الصور والرسوم البيانية وجدول 3×3 المعتمد، مع التصدير المباشر لملف Word والطباعة الرسمية الصافية دون أي صفحات بيضاء.
+              مساحة عمل كأنها صفحة Microsoft Word حقيقية: لصق الموضوع المستلم من الأستاذ، تنسيق الخطوط والمقاييس، إدراج الصور والرسوم البيانية والجداول المخصصة بالأبعاد الحرة، وفق النموذج الوزاري الرسمي المعتمد.
             </p>
           </div>
 
@@ -947,15 +967,18 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
                   className="hidden"
                 />
 
-                {/* STRICT 3x3 Table Insertion Only (No custom table creation) */}
+                {/* Custom Table Insertion Button */}
                 <button
                   type="button"
-                  title="إدراج جدول رسمي ثابت (3×3) فقط"
-                  onClick={handleInsertTable}
+                  title="إدراج جدول مخصص (صفوف وأعمدة حرة)"
+                  onClick={() => {
+                    setHoverGrid({ rows: tableRows, cols: tableCols });
+                    setIsTableModalOpen(true);
+                  }}
                   className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-700 hover:bg-blue-600 rounded text-white text-[11px] font-bold transition cursor-pointer"
                 >
                   <TableIcon className="w-3.5 h-3.5" />
-                  <span>جدول (3×3)</span>
+                  <span>إدراج جدول...</span>
                 </button>
 
                 {/* Insert Line */}
@@ -1010,111 +1033,313 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
           </div>
 
           {/* ========================================================================= */}
-          {/* THE REALISTIC A4 WORD PAGE CANVAS (Screen View)                           */}
-          {/* Strict Rule: NO BLACK LOGO ON EXAM QUESTION PAPER! Pure Ministerial Text   */}
+          {/* THE REALISTIC OFFICIAL EXAM WORD PAGE CANVAS (Exact replica of PDF)       */}
+          {/* Strict Rule: NO LOGO • EXACT OFFICIAL FRAMEWORK & BORDERS                */}
           {/* ========================================================================= */}
           <div className="py-6 flex justify-center bg-slate-200/70 rounded-2xl border border-slate-300 overflow-x-auto">
             <div 
-              className={`bg-white text-black shadow-2xl border border-slate-300 font-simplified-arabic p-10 md:p-12 relative flex flex-col justify-between ${
+              className={`bg-white text-black shadow-2xl border-2 border-black official-exam-outer-frame font-simplified-arabic p-6 md:p-8 relative flex flex-col justify-between ${
                 paperFormat === 'A3' ? 'w-[297mm] min-h-[420mm]' : 'w-[210mm] min-h-[297mm]'
               }`}
               dir="rtl"
             >
-              <div>
-                {/* 1. Official 5-Line Ministerial Header (STRICTLY TEXT ONLY - NO LOGO) */}
-                <div className="text-center border-b-2 border-black pb-3 mb-4 leading-snug">
-                  <h2 className="font-bold text-xs md:text-sm text-black leading-tight">
-                    {INSTITUTION.republic}
-                  </h2>
-                  <h3 className="font-bold text-[11px] md:text-xs text-slate-800 leading-tight mt-0.5">
-                    {INSTITUTION.ministry}
-                  </h3>
-                  <h3 className="font-black text-xs md:text-sm text-black mt-1 leading-tight">
-                    {INSTITUTION.name}
-                  </h3>
-                  <p className="text-[10px] md:text-[11px] text-slate-700 font-semibold mt-0.5">
-                    {INSTITUTION.deputyDirectorate}
-                  </p>
-                  <p className="text-[11px] md:text-xs text-black font-black mt-0.5">
-                    {INSTITUTION.service}
-                  </p>
-                </div>
-
-                {/* 2. Official Examination Identification Box */}
-                <div className="border-2 border-black rounded-lg p-3 bg-slate-50/70 mb-3 text-xs leading-relaxed">
-                  <div className="grid grid-cols-2 gap-y-1.5 gap-x-4">
-                    <div>
-                      <span className="text-slate-600 font-bold text-[11px]">الدورة التكوينية:</span>{' '}
-                      <strong className="text-black font-black">{sessionTitle}</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-600 font-bold text-[11px]">السنة التكوينية:</span>{' '}
-                      <strong className="text-black font-mono font-bold">{formatAcademicYear(academicYear)}</strong>
-                    </div>
-
-                    <div className="col-span-2 pt-1 border-t border-slate-300">
-                      <span className="text-slate-600 font-bold text-[11px]">الرتبة التكوينية:</span>{' '}
-                      <strong className="text-black text-sm font-black">{currentRank.titleAr}</strong>{' '}
-                      <span className="text-[10px] bg-slate-200 text-slate-800 px-1.5 py-0.2 rounded font-mono font-bold mr-2">
-                        كود الرتبة: {rankNumericCode}
-                      </span>
-                    </div>
-
-                    <div className="col-span-2 pt-1 border-t border-slate-300">
-                      <span className="text-slate-600 font-bold text-[11px]">موضوع الاختبار في مقياس:</span>{' '}
-                      <strong className="text-black text-sm font-black">{selectedModule?.titleAr}</strong>
-                    </div>
-
-                    <div className="col-span-2 pt-1.5 border-t border-slate-300 flex items-center justify-between text-xs font-mono font-bold text-black">
-                      <span>المدة المحددة: <strong>{duration}</strong></span>
-                      <span>المعامل: <strong>{coefficient}</strong></span>
-                      <span>تاريخ الإجراء: <strong>{formatArabicDate(examDate)}</strong></span>
-                      <span className="text-[10px] text-slate-600 font-normal">كود: COD-{selectedModule?.code}</span>
-                    </div>
+              <div className="flex flex-col flex-1">
+                {/* 1. Official Header (Exact replica of PDF: Centered Republic & Ministry, Right-aligned Direction & Institute) */}
+                <div className="mb-2">
+                  <div className="text-center font-bold text-xs md:text-sm leading-snug">
+                    <p className="font-bold">{INSTITUTION.republic}</p>
+                    <p className="font-bold mt-0.5">{INSTITUTION.ministry}</p>
+                  </div>
+                  <div className="text-right font-bold text-xs leading-tight mt-1 space-y-0.5 text-black">
+                    <p>مديرية التكوين</p>
+                    <p>المعهد الوطني لتكوين موظفي قطاع التربية الوطنية</p>
+                    <p>&quot; الشيخ زاهية حسين &quot; الأغواط</p>
                   </div>
                 </div>
 
-                {/* 3. Important Candidate Instructions Strip */}
-                {instructions && (
-                  <div className="border-r-4 border-black bg-slate-100 p-2.5 rounded-l mb-4 text-xs text-black leading-relaxed font-bold">
-                    <span className="block mb-0.5 text-black">توجيهات وتعليمات هامة للمترشح:</span>
-                    <p className="font-normal text-slate-800 text-[11px]">{instructions}</p>
-                  </div>
-                )}
+                {/* 2. Official Exam Identification Table (Exact replica of PDF) */}
+                <table className="w-full border-2 border-black border-collapse text-xs mb-2">
+                  <tbody>
+                    {/* Row 1: Session Exam Header (Right) & Academic Year (Left) */}
+                    <tr className="border-b-2 border-black">
+                      <td className="border-l-2 border-black p-2 font-black text-center text-sm md:text-base w-2/3">
+                        إمتحــــــــــــــــــان نهاية التكوين المتخصص
+                      </td>
+                      <td className="p-2 font-bold text-center w-1/3 text-xs md:text-sm">
+                        السنة التكوينية : <span className="font-mono">{formatAcademicYear(academicYear)}</span>
+                      </td>
+                    </tr>
 
-                {/* 4. Optional Dual-Choice Banner */}
-                {isDualChoice && (
-                  <div className="text-center bg-black text-white py-1 px-4 rounded font-bold text-xs md:text-sm my-3 tracking-wide">
-                    على المترشح أن يعالج أحد الموضوعين على الخيار
-                  </div>
-                )}
+                    {/* Row 2: Rank (الرتبة) spanning full width */}
+                    <tr className="border-b-2 border-black">
+                      <td colSpan={2} className="p-2 font-bold text-right text-xs md:text-sm">
+                        <span>الرتبة : </span>
+                        <span className="font-black mr-2">{currentRank.titleAr}</span>
+                      </td>
+                    </tr>
 
-                {/* 5. The Live Word WYSIWYG Editable Document Body */}
-                <div
-                  ref={editorRef}
-                  contentEditable
-                  suppressContentEditableWarning
-                  onInput={(e) => setEditorContent(e.currentTarget.innerHTML)}
-                  onPaste={handlePasteFromWord}
-                  className="min-h-[480px] p-2 focus:outline-none focus:ring-1 focus:ring-orange-300 rounded text-justify text-xs md:text-sm text-black leading-loose"
-                  style={{
-                    fontFamily: `${fontFamily}, sans-serif`,
-                    fontSize: fontSize,
-                    lineHeight: '1.9'
-                  }}
-                />
+                    {/* Row 3: Module on Right, Date & Time stacked on Left */}
+                    <tr>
+                      {/* Right Column: Module */}
+                      <td className="border-l-2 border-black p-2.5 align-middle text-right">
+                        <div className="font-bold flex items-baseline gap-2">
+                          <span className="shrink-0 text-xs">المقياس :</span>
+                          <span className="font-black text-sm">{selectedModule?.titleAr || '............................................................................................................'}</span>
+                        </div>
+                      </td>
+
+                      {/* Left Column: Stacked Date & Duration */}
+                      <td className="p-0 align-top">
+                        <div className="border-b border-black p-1.5 font-bold text-right flex items-center justify-between text-xs">
+                          <span>التاريخ:</span>
+                          <span className="font-mono">{formatArabicDate(examDate)}</span>
+                        </div>
+                        <div className="p-1.5 font-bold text-right flex items-center justify-between text-xs">
+                          <span>التوقيت :</span>
+                          <span className="font-mono">{duration}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* 3. Main Exam Subject Framing Box (Exact replica of PDF) */}
+                <div className="border-2 border-black flex-1 p-4 my-1 min-h-[440px] text-justify text-xs md:text-sm leading-relaxed overflow-hidden bg-white flex flex-col justify-between">
+                  <div>
+                    {/* Important Instructions if any */}
+                    {instructions && (
+                      <div className="border-r-4 border-black bg-slate-100 p-2 rounded-l mb-3 text-xs text-black leading-relaxed font-bold">
+                        <span className="block mb-0.5 text-black">توجيهات وتعليمات هامة للمترشح:</span>
+                        <p className="font-normal text-slate-800 text-[11px]">{instructions}</p>
+                      </div>
+                    )}
+
+                    {/* Dual-choice banner if active */}
+                    {isDualChoice && (
+                      <div className="text-center bg-black text-white py-1 px-4 rounded font-bold text-xs md:text-sm mb-3 tracking-wide">
+                        على المترشح أن يعالج أحد الموضوعين على الخيار
+                      </div>
+                    )}
+
+                    {/* Live Word WYSIWYG Editable Document Body */}
+                    <div
+                      ref={editorRef}
+                      contentEditable
+                      suppressContentEditableWarning
+                      onInput={(e) => setEditorContent(e.currentTarget.innerHTML)}
+                      onPaste={handlePasteFromWord}
+                      className="min-h-[360px] p-1 focus:outline-none rounded text-justify text-xs md:text-sm text-black leading-loose"
+                      style={{
+                        fontFamily: `${fontFamily}, sans-serif`,
+                        fontSize: fontSize,
+                        lineHeight: '1.9'
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
 
-              {/* 6. Official Bottom Sheet Footer */}
-              <div className="border-t-2 border-black pt-3 mt-8 flex items-center justify-between text-xs font-bold text-black">
-                <span className="text-[11px] text-slate-700">المعهد الوطني بالأغواط • مصلحة تنظيم سير المسابقات والامتحانات</span>
-                <span className="text-xs font-black text-black">
-                  — انتهى موضوع الاختبار • بالتوفيق للجميع —
-                </span>
-                <span className="font-mono text-[11px]">صفحة 1 / 1</span>
-              </div>
+              {/* 4. Official Bottom Table Footer (Exact replica of PDF: Professor, Page 1/1, Best of luck) */}
+              <table className="w-full border-2 border-black border-collapse text-xs mt-2">
+                <tbody>
+                  <tr>
+                    <td className="border-l-2 border-black p-2 font-bold text-right w-1/2">
+                      <span>أستاذ(ة) المقياس : </span>
+                      <span className="font-mono text-xs">{authorName || '...................................................'}</span>
+                    </td>
+                    <td className="border-l-2 border-black p-2 font-bold font-mono text-center w-1/5">
+                      ص 1/1
+                    </td>
+                    <td className="p-2 font-black text-center w-[30%] text-sm">
+                      بالتــــــــــــــــــــــــــــــوفيق
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
+
+          {/* Dynamic Interactive Table Modal (Custom Rows & Columns) */}
+          {isTableModalOpen && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4" dir="rtl">
+              <div className="bg-white rounded-2xl border border-slate-300 shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-blue-100 text-blue-700 rounded-lg">
+                      <TableIcon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm text-slate-900 font-cairo">إدراج جدول مخصص في الموضوع</h3>
+                      <p className="text-[11px] text-slate-500">اختر عدد الصفوف والأعمدة بالمقاييس التي تناسب موضوعك</p>
+                    </div>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => setIsTableModalOpen(false)}
+                    className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Quick Word-like Interactive Visual Grid Selector (8 cols x 6 rows) */}
+                <div className="space-y-2 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                    <span>تحديد سريع بالسحب (Visual Grid):</span>
+                    <span className="font-mono text-blue-700 font-black bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                      {hoverGrid.cols} أعمدة × {hoverGrid.rows} صفوف
+                    </span>
+                  </div>
+                  
+                  <div 
+                    className="grid grid-cols-8 gap-1.5 p-2 bg-white rounded-lg border border-slate-300 justify-center w-fit mx-auto cursor-pointer"
+                    onMouseLeave={() => setHoverGrid({ rows: tableRows, cols: tableCols })}
+                  >
+                    {Array.from({ length: 6 }).map((_, rIdx) => (
+                      Array.from({ length: 8 }).map((_, cIdx) => {
+                        const isHighlighted = rIdx < hoverGrid.rows && cIdx < hoverGrid.cols;
+                        return (
+                          <div
+                            key={`${rIdx}-${cIdx}`}
+                            onMouseEnter={() => setHoverGrid({ rows: rIdx + 1, cols: cIdx + 1 })}
+                            onClick={() => {
+                              setTableRows(rIdx + 1);
+                              setTableCols(cIdx + 1);
+                              handleInsertCustomTable(rIdx + 1, cIdx + 1, tableHasHeader);
+                            }}
+                            className={`w-5 h-5 rounded-xs border transition-colors ${
+                              isHighlighted 
+                                ? 'bg-blue-600 border-blue-700' 
+                                : 'bg-slate-100 border-slate-300 hover:border-blue-400'
+                            }`}
+                            title={`${cIdx + 1} × ${rIdx + 1}`}
+                          />
+                        );
+                      })
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-center text-slate-500">حرّك الفأرة فوق المربعات ثم انقر للإدراج الفوري</p>
+                </div>
+
+                {/* Precise Numerical Inputs & Steppers */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Rows */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-slate-700">عدد الصفوف (الأسطر):</label>
+                    <div className="flex items-center border border-slate-300 rounded-lg overflow-hidden bg-white">
+                      <button
+                        type="button"
+                        onClick={() => setTableRows(Math.max(1, tableRows - 1))}
+                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm cursor-pointer"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min={1}
+                        max={30}
+                        value={tableRows}
+                        onChange={(e) => setTableRows(Math.max(1, Math.min(30, parseInt(e.target.value) || 1)))}
+                        className="w-full text-center text-xs font-mono font-bold py-1.5 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setTableRows(Math.min(30, tableRows + 1))}
+                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm cursor-pointer"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Columns */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-slate-700">عدد الأعمدة:</label>
+                    <div className="flex items-center border border-slate-300 rounded-lg overflow-hidden bg-white">
+                      <button
+                        type="button"
+                        onClick={() => setTableCols(Math.max(1, tableCols - 1))}
+                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm cursor-pointer"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min={1}
+                        max={12}
+                        value={tableCols}
+                        onChange={(e) => setTableCols(Math.max(1, Math.min(12, parseInt(e.target.value) || 1)))}
+                        className="w-full text-center text-xs font-mono font-bold py-1.5 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setTableCols(Math.min(12, tableCols + 1))}
+                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm cursor-pointer"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Header row checkbox */}
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-800 cursor-pointer p-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={tableHasHeader}
+                    onChange={(e) => setTableHasHeader(e.target.checked)}
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <span>تضمين صف ترويسة مظلل في الأعلى (Header Row)</span>
+                </label>
+
+                {/* Quick Presets */}
+                <div className="space-y-1.5 pt-1">
+                  <span className="text-[11px] font-bold text-slate-500 block">نماذج جداول امتحانية سريعة:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { label: 'مقارنة (2×4)', r: 4, c: 2 },
+                      { label: 'تنقيط ومعايير (3×5)', r: 5, c: 3 },
+                      { label: 'بيانات (4×4)', r: 4, c: 4 },
+                      { label: 'تشخيص وخلل (3×3)', r: 3, c: 3 }
+                    ].map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setTableRows(preset.r);
+                          setTableCols(preset.c);
+                          handleInsertCustomTable(preset.r, preset.c, tableHasHeader);
+                        }}
+                        className="text-[11px] font-bold px-2 py-1 rounded bg-slate-100 hover:bg-blue-50 hover:text-blue-700 border border-slate-200 transition cursor-pointer"
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Modal Actions */}
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setIsTableModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleInsertCustomTable(tableRows, tableCols, tableHasHeader)}
+                    className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-blue-700 hover:bg-blue-600 shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <TableIcon className="w-4 h-4" />
+                    <span>إدراج الجدول ({tableRows} × {tableCols})</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1365,90 +1590,115 @@ export const OfficialExamTemplateMaker: React.FC<OfficialExamTemplateMakerProps>
             </div>
           </div>
         ) : (
-          /* Official Exam Question Paper (ورقة موضوع الامتحان الرسمية) */
-          <div className="space-y-4">
-            {/* 1. Official 5-Line Ministerial Header (STRICTLY TEXT ONLY - NO LOGO) */}
-            <div className="text-center border-b-2 border-black pb-3 mb-4 leading-snug">
-              <h2 className="font-bold text-xs md:text-sm text-black leading-tight">
-                {INSTITUTION.republic}
-              </h2>
-              <h3 className="font-bold text-[11px] md:text-xs text-slate-800 leading-tight mt-0.5">
-                {INSTITUTION.ministry}
-              </h3>
-              <h3 className="font-black text-xs md:text-sm text-black mt-1 leading-tight">
-                {INSTITUTION.name}
-              </h3>
-              <p className="text-[10px] md:text-[11px] text-slate-700 font-semibold mt-0.5">
-                {INSTITUTION.deputyDirectorate}
-              </p>
-              <p className="text-[11px] md:text-xs text-black font-black mt-0.5">
-                {INSTITUTION.service}
-              </p>
-            </div>
+          /* Official Exam Question Paper (ورقة موضوع الامتحان الرسمية - Replica of PDF) */
+          <div 
+            className="border-2 border-black official-exam-outer-frame font-simplified-arabic p-6 md:p-8 min-h-[268mm] flex flex-col justify-between bg-white text-black"
+            dir="rtl"
+          >
+            <div className="flex flex-col flex-1">
+              {/* 1. Official Header (Exact replica of PDF: Centered Republic & Ministry, Right-aligned Direction & Institute) */}
+              <div className="mb-2">
+                <div className="text-center font-bold text-xs md:text-sm leading-snug">
+                  <p className="font-bold">{INSTITUTION.republic}</p>
+                  <p className="font-bold mt-0.5">{INSTITUTION.ministry}</p>
+                </div>
+                <div className="text-right font-bold text-xs leading-tight mt-1 space-y-0.5 text-black">
+                  <p>مديرية التكوين</p>
+                  <p>المعهد الوطني لتكوين موظفي قطاع التربية الوطنية</p>
+                  <p>&quot; الشيخ زاهية حسين &quot; الأغواط</p>
+                </div>
+              </div>
 
-            {/* 2. Official Examination Identification Box */}
-            <div className="border-2 border-black rounded-lg p-3 bg-slate-50/70 mb-3 text-xs leading-relaxed">
-              <div className="grid grid-cols-2 gap-y-1.5 gap-x-4">
+              {/* 2. Official Exam Identification Table (Exact replica of PDF) */}
+              <table className="w-full border-2 border-black border-collapse text-xs mb-2">
+                <tbody>
+                  {/* Row 1: Session Exam Header (Right) & Academic Year (Left) */}
+                  <tr className="border-b-2 border-black">
+                    <td className="border-l-2 border-black p-2 font-black text-center text-sm md:text-base w-2/3">
+                      إمتحــــــــــــــــــان نهاية التكوين المتخصص
+                    </td>
+                    <td className="p-2 font-bold text-center w-1/3 text-xs md:text-sm">
+                      السنة التكوينية : <span className="font-mono">{formatAcademicYear(academicYear)}</span>
+                    </td>
+                  </tr>
+
+                  {/* Row 2: Rank (الرتبة) spanning full width */}
+                  <tr className="border-b-2 border-black">
+                    <td colSpan={2} className="p-2 font-bold text-right text-xs md:text-sm">
+                      <span>الرتبة : </span>
+                      <span className="font-black mr-2">{currentRank.titleAr}</span>
+                    </td>
+                  </tr>
+
+                  {/* Row 3: Module on Right, Date & Time stacked on Left */}
+                  <tr>
+                    {/* Right Column: Module */}
+                    <td className="border-l-2 border-black p-2.5 align-middle text-right">
+                      <div className="font-bold flex items-baseline gap-2">
+                        <span className="shrink-0 text-xs">المقياس :</span>
+                        <span className="font-black text-sm">{selectedModule?.titleAr || '............................................................................................................'}</span>
+                      </div>
+                    </td>
+
+                    {/* Left Column: Stacked Date & Duration */}
+                    <td className="p-0 align-top">
+                      <div className="border-b border-black p-1.5 font-bold text-right flex items-center justify-between text-xs">
+                        <span>التاريخ:</span>
+                        <span className="font-mono">{formatArabicDate(examDate)}</span>
+                      </div>
+                      <div className="p-1.5 font-bold text-right flex items-center justify-between text-xs">
+                        <span>التوقيت :</span>
+                        <span className="font-mono">{duration}</span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {/* 3. Main Exam Subject Framing Box (Exact replica of PDF) */}
+              <div className="border-2 border-black flex-1 p-4 my-1 min-h-[440px] text-justify text-xs md:text-sm leading-relaxed overflow-hidden bg-white flex flex-col justify-between">
                 <div>
-                  <span className="text-slate-600 font-bold text-[11px]">الدورة التكوينية:</span>{' '}
-                  <strong className="text-black font-black">{sessionTitle}</strong>
-                </div>
-                <div>
-                  <span className="text-slate-600 font-bold text-[11px]">السنة التكوينية:</span>{' '}
-                  <strong className="text-black font-mono font-bold">{formatAcademicYear(academicYear)}</strong>
-                </div>
+                  {/* Important Instructions if any */}
+                  {instructions && (
+                    <div className="border-r-4 border-black bg-slate-100 p-2 rounded-l mb-3 text-xs text-black leading-relaxed font-bold">
+                      <span className="block mb-0.5 text-black">توجيهات وتعليمات هامة للمترشح:</span>
+                      <p className="font-normal text-slate-800 text-[11px]">{instructions}</p>
+                    </div>
+                  )}
 
-                <div className="col-span-2 pt-1 border-t border-slate-300">
-                  <span className="text-slate-600 font-bold text-[11px]">الرتبة التكوينية:</span>{' '}
-                  <strong className="text-black text-sm font-black">{currentRank.titleAr}</strong>{' '}
-                  <span className="text-[10px] bg-slate-200 text-slate-800 px-1.5 py-0.2 rounded font-mono font-bold mr-2">
-                    كود الرتبة: {rankNumericCode}
-                  </span>
-                </div>
+                  {/* Dual-choice banner if active */}
+                  {isDualChoice && (
+                    <div className="text-center bg-black text-white py-1 px-4 rounded font-bold text-xs md:text-sm mb-3 tracking-wide">
+                      على المترشح أن يعالج أحد الموضوعين على الخيار
+                    </div>
+                  )}
 
-                <div className="col-span-2 pt-1 border-t border-slate-300">
-                  <span className="text-slate-600 font-bold text-[11px]">موضوع الاختبار في مقياس:</span>{' '}
-                  <strong className="text-black text-sm font-black">{selectedModule?.titleAr}</strong>
-                </div>
-
-                <div className="col-span-2 pt-1.5 border-t border-slate-300 flex items-center justify-between text-xs font-mono font-bold text-black">
-                  <span>المدة المحددة: <strong>{duration}</strong></span>
-                  <span>المعامل: <strong>{coefficient}</strong></span>
-                  <span>تاريخ الإجراء: <strong>{formatArabicDate(examDate)}</strong></span>
-                  <span className="text-[10px] text-slate-600 font-normal">كود: COD-{selectedModule?.code}</span>
+                  {/* Exam Questions Body */}
+                  <div 
+                    className="p-1 text-justify text-xs md:text-sm text-black leading-loose font-simplified-arabic"
+                    dangerouslySetInnerHTML={{ __html: editorRef.current?.innerHTML || editorContent }}
+                  />
                 </div>
               </div>
             </div>
 
-            {/* 3. Important Candidate Instructions Strip */}
-            {instructions && (
-              <div className="border-r-4 border-black bg-slate-100 p-2.5 rounded-l mb-4 text-xs text-black leading-relaxed font-bold">
-                <span className="block mb-0.5 text-black">توجيهات وتعليمات هامة للمترشح:</span>
-                <p className="font-normal text-slate-800 text-[11px]">{instructions}</p>
-              </div>
-            )}
-
-            {/* 4. Optional Dual-Choice Banner */}
-            {isDualChoice && (
-              <div className="text-center bg-black text-white py-1 px-4 rounded font-bold text-xs md:text-sm my-3 tracking-wide">
-                على المترشح أن يعالج أحد الموضوعين على الخيار
-              </div>
-            )}
-
-            {/* 5. Exam Subject Questions Body */}
-            <div 
-              className="min-h-[400px] p-2 text-justify text-xs md:text-sm text-black leading-loose font-simplified-arabic"
-              dangerouslySetInnerHTML={{ __html: editorRef.current?.innerHTML || editorContent }}
-            />
-
-            {/* 6. Official Bottom Sheet Footer */}
-            <div className="border-t-2 border-black pt-3 mt-8 flex items-center justify-between text-xs font-bold text-black">
-              <span className="text-[11px] text-slate-700">المعهد الوطني بالأغواط • مصلحة تنظيم سير المسابقات والامتحانات</span>
-              <span className="text-xs font-black text-black">
-                — انتهى موضوع الاختبار • بالتوفيق للجميع —
-              </span>
-              <span className="font-mono text-[11px]">صفحة 1 / 1</span>
-            </div>
+            {/* 4. Official Bottom Table Footer (Exact replica of PDF: Professor, Page 1/1, Best of luck) */}
+            <table className="w-full border-2 border-black border-collapse text-xs mt-2">
+              <tbody>
+                <tr>
+                  <td className="border-l-2 border-black p-2 font-bold text-right w-1/2">
+                    <span>أستاذ(ة) المقياس : </span>
+                    <span className="font-mono text-xs">{authorName || '...................................................'}</span>
+                  </td>
+                  <td className="border-l-2 border-black p-2 font-bold font-mono text-center w-1/5">
+                    ص 1/1
+                  </td>
+                  <td className="p-2 font-black text-center w-[30%] text-sm">
+                    بالتــــــــــــــــــــــــــــــوفيق
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         )}
       </div>
