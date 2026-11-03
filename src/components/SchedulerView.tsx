@@ -22,7 +22,7 @@ import {
 import type { AppDatabaseState, ProctorTeacher, ExamRoom, TimetableSlot, ExamSession } from '../db/sqlite-manager';
 import type { ExamModule } from '../utils/crypto-anonymat';
 import { INSTITUTION } from '../constants/branding';
-import { formatArabicDate, formatAcademicYear } from '../utils/date-formatter';
+import { formatArabicDate, formatAcademicYear, getCurrentArabicDate } from '../utils/date-formatter';
 import { triggerPrintWithDynamicTitle } from '../utils/print-utils';
 
 interface SchedulerViewProps {
@@ -82,10 +82,13 @@ export const SchedulerView: React.FC<SchedulerViewProps> = ({
 
   // Selected proctor for individual summons
   const [selectedProctorIdForSummons, setSelectedProctorIdForSummons] = useState<string>(proctors[0]?.id || '');
+  const [scheduleSlotMode, setScheduleSlotMode] = useState<2 | 3>(2);
   const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
 
-  // Auto timetable generation
-  const handleGenerateAutomatedTimetable = () => {
+  // Auto timetable generation supporting 2 or 3 slots per day
+  const handleGenerateAutomatedTimetable = (perDay?: 2 | 3 | React.MouseEvent) => {
+    const chosenPerDay: 2 | 3 = (perDay === 2 || perDay === 3) ? perDay : scheduleSlotMode;
+
     if (modules.length === 0) {
       setNotification({ type: 'error', message: 'لا توجد مقاييس مسجلة لهذه الرتبة لتوليد الرزنامة!' });
       return;
@@ -93,22 +96,28 @@ export const SchedulerView: React.FC<SchedulerViewProps> = ({
 
     const startDateStr = currentSession?.examStartDate || currentSession?.startDate || '2027-06-13';
     const startDate = new Date(startDateStr);
-    const morningTime = currentSession?.morningTimeSlot || '08:30 - 11:30';
-    const afternoonTime = currentSession?.afternoonTimeSlot || '14:00 - 17:00';
+    
+    // Custom slot time ranges based on chosenPerDay
+    const slotTimeRanges = chosenPerDay === 3 ? [
+      '08:00 - 10:30',
+      '11:00 - 13:30',
+      '14:30 - 17:00'
+    ] : [
+      currentSession?.morningTimeSlot || '08:30 - 11:30',
+      currentSession?.afternoonTimeSlot || '14:00 - 17:00'
+    ];
 
     const newSlots: TimetableSlot[] = [];
-    let currentDate = new Date(startDate);
-
-    // Use the exact synchronized rooms from Subtab 1 (Rooms Distribution)
     const activeRooms = rooms;
 
-    // Distribute modules 2 per day: morning then afternoon
+    // Distribute modules per day (2 or 3 per day)
     modules.forEach((mod, index) => {
-      const dayOffset = Math.floor(index / 2);
-      const isMorning = index % 2 === 0;
+      const dayOffset = Math.floor(index / chosenPerDay);
+      const slotInDay = index % chosenPerDay;
+      const sessionTime: 'morning' | 'afternoon' = slotInDay < (chosenPerDay === 3 ? 2 : 1) ? 'morning' : 'afternoon';
+      const timeRange = slotTimeRanges[slotInDay] || '08:30 - 11:30';
 
       // Calculate calendar day skipping Friday (day 5)
-      const slotDate = new Date(startDate);
       let addedDays = 0;
       let checkDate = new Date(startDate);
       while (addedDays < dayOffset) {
@@ -128,16 +137,17 @@ export const SchedulerView: React.FC<SchedulerViewProps> = ({
       newSlots.push({
         id: `slot_${mod.id}_${index}`,
         date: dateString,
-        sessionTime: isMorning ? 'morning' : 'afternoon',
-        timeRange: isMorning ? morningTime : afternoonTime,
+        sessionTime,
+        timeRange,
         moduleId: mod.id,
         roomAllocations
       });
     });
 
     onUpdateTimetable(newSlots);
-    onAddAuditLog('توليد رزنامة الامتحانات', `تم توليد رزنامة آلية موزعة على ${newSlots.length} فترة اختبار لمقاييس ${specialty?.titleAr} عبر ${activeRooms.length} قاعات موزعة.`, 'info');
-    setNotification({ type: 'success', message: `تم توليد رزنامة الاختبارات بنجاح بمعدل مقياسين يومياً عبر ${activeRooms.length} قاعة مطابقة للتقسيم الإداري!` });
+    setScheduleSlotMode(chosenPerDay);
+    onAddAuditLog('توليد رزنامة الامتحانات', `تم توليد رزنامة آلية موزعة على ${newSlots.length} فترة اختبار لمقاييس ${specialty?.titleAr} بمعدل ${chosenPerDay} مقاييس يومياً عبر ${activeRooms.length} قاعات موزعة.`, 'info');
+    setNotification({ type: 'success', message: `تم توليد رزنامة الاختبارات بنجاح بمعدل ${chosenPerDay === 3 ? 'ثلاثة (03)' : 'مقياسين (02)'} يومياً عبر ${activeRooms.length} قاعة مطابقة للتقسيم الإداري!` });
   };
 
   // Smart Fair Proctor Distribution (2 proctors per room per slot, balancing load)
@@ -631,130 +641,229 @@ export const SchedulerView: React.FC<SchedulerViewProps> = ({
       {/* ========================================================================= */}
       {/* PRINT TEMPLATE 1: EXAM TIMETABLE (رزنامة سير الاختبارات الكتابية)        */}
       {/* ========================================================================= */}
-      {activeTab === 'print_schedule' && (
-        <div className="space-y-4">
-          <div className="max-w-4xl mx-auto flex items-center justify-between gap-3 bg-slate-900 text-white p-3.5 rounded-xl no-print shadow-md">
-            <span className="text-xs font-bold text-amber-300">
-              معاينة طباعة: رزنامة سير الاختبارات الكتابية (Simplified Arabic)
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  const scheduleTitle = `رزنامة_سير_الاختبارات_الكتابية_${specialty?.titleAr || 'الامتحانات'}_${formatArabicDate(currentSession?.examStartDate || currentSession?.startDate || new Date())}`;
-                  triggerPrintWithDynamicTitle(scheduleTitle);
-                }}
-                className="bg-orange-600 hover:bg-orange-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-              >
-                <Printer className="w-4 h-4" />
-                <span>طباعة الوثيقة</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('timetable')}
-                className="bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
-              >
-                إغلاق
-              </button>
-            </div>
-          </div>
+      {activeTab === 'print_schedule' && (() => {
+        const baseExamDate = new Date(currentSession?.examStartDate || currentSession?.startDate || '2027-06-13');
 
-          <div className="print-document max-w-[850px] mx-auto bg-white border-2 border-slate-900 p-8 shadow-xl font-simplified-arabic text-black print:shadow-none print:border-none print:p-0">
-            {/* 5-Line Official Ministerial Header with Black Institute Logo */}
-            <div className="border-b-2 border-slate-900 pb-3 mb-4 leading-snug">
-              <div className="flex items-center justify-between">
-                <div className="text-right flex-1">
-                  <p className="text-xs font-bold text-slate-900">{INSTITUTION.republic}</p>
-                  <p className="text-xs font-bold text-slate-900">{INSTITUTION.ministry}</p>
-                  <h1 className="text-sm md:text-base font-bold text-slate-950 mt-0.5 print-bold">
-                    {INSTITUTION.name}
-                  </h1>
-                  <p className="text-xs font-semibold text-slate-800 mt-0.5">
-                    {INSTITUTION.deputyDirectorate}
-                  </p>
-                  <p className="text-xs font-bold text-slate-900 mt-0.5 print-bold">
-                    {INSTITUTION.service}
-                  </p>
-                </div>
-                <div className="shrink-0 pl-3">
-                  <img 
-                    src={INSTITUTION.logoBlack} 
-                    alt="شعار المعهد" 
-                    className="h-16 w-auto object-contain filter contrast-125"
-                  />
+        // Determine if timetable has 3 slots for any day, or follow user preference
+        let effectiveSlotsCount: 2 | 3 = scheduleSlotMode;
+        if (timetable.length > 0) {
+          const countByDate: Record<string, number> = {};
+          timetable.forEach(s => { countByDate[s.date] = (countByDate[s.date] || 0) + 1; });
+          if (Object.values(countByDate).some(c => c >= 3)) {
+            effectiveSlotsCount = 3;
+          }
+        }
+
+        // 5 Working days: Sunday to Thursday
+        const scheduleDays: { 
+          name: string; 
+          dateFormatted: string; 
+          slots: (ExamModule | undefined)[];
+        }[] = [
+          { name: 'الأحــــــد', dateFormatted: '', slots: [] },
+          { name: 'الإثنين', dateFormatted: '', slots: [] },
+          { name: 'الثلاثاء', dateFormatted: '', slots: [] },
+          { name: 'الأربعاء', dateFormatted: '', slots: [] },
+          { name: 'الخميس', dateFormatted: '', slots: [] }
+        ];
+
+        for (let i = 0; i < 5; i++) {
+          const d = new Date(baseExamDate);
+          d.setDate(baseExamDate.getDate() + i);
+          scheduleDays[i].dateFormatted = formatArabicDate(d);
+          scheduleDays[i].slots = Array(effectiveSlotsCount).fill(undefined);
+        }
+
+        if (timetable.length > 0) {
+          scheduleDays.forEach((day, dIdx) => {
+            for (let sIdx = 0; sIdx < effectiveSlotsCount; sIdx++) {
+              const slotItem = timetable[dIdx * effectiveSlotsCount + sIdx];
+              if (slotItem) {
+                day.slots[sIdx] = modules.find(m => m.id === slotItem.moduleId);
+              }
+            }
+          });
+        } else {
+          modules.forEach((mod, idx) => {
+            const dayIdx = Math.floor(idx / effectiveSlotsCount);
+            const slotIdx = idx % effectiveSlotsCount;
+            if (dayIdx < 5) {
+              scheduleDays[dayIdx].slots[slotIdx] = mod;
+            }
+          });
+        }
+
+        const rowDefinitions = effectiveSlotsCount === 3 ? [
+          { title: 'الفترة الصباحية الأولى', time: '08:00 - 10:30' },
+          { title: 'الفترة الصباحية الثانية', time: '11:00 - 13:30' },
+          { title: 'الفترة المسائية', time: '14:30 - 17:00' }
+        ] : [
+          { title: 'الفترة الصباحية', time: currentSession?.morningTimeSlot || '08:30 - 11:30' },
+          { title: 'الفترة المسائية', time: currentSession?.afternoonTimeSlot || '14:00 - 17:00' }
+        ];
+
+        const activeDirectorName = dbState.institutionSettings?.directorName || currentSession?.presidentName || INSTITUTION.director;
+
+        return (
+          <div className="space-y-4">
+            <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-3 bg-slate-900 text-white p-3.5 rounded-xl no-print shadow-md">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-amber-300">
+                  معاينة طباعة: جدول امتحانات نهاية التكوين المتخصص (النموذج الرسمي للمعهد A4 عرضي)
+                </span>
+                <div className="inline-flex rounded-lg border border-slate-700 p-0.5 bg-slate-800 text-[11px]">
+                  <button
+                    onClick={() => {
+                      setScheduleSlotMode(2);
+                      handleGenerateAutomatedTimetable(2);
+                    }}
+                    className={`px-2.5 py-1 rounded-md font-bold transition cursor-pointer ${
+                      effectiveSlotsCount === 2 ? 'bg-orange-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    فترتان يومياً
+                  </button>
+                  <button
+                    onClick={() => {
+                      setScheduleSlotMode(3);
+                      handleGenerateAutomatedTimetable(3);
+                    }}
+                    className={`px-2.5 py-1 rounded-md font-bold transition cursor-pointer ${
+                      effectiveSlotsCount === 3 ? 'bg-orange-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    3 فترات يومياً
+                  </button>
                 </div>
               </div>
-              <div className="text-center mt-2">
-                <div className="inline-block bg-slate-900 text-white text-xs font-bold px-4 py-1 rounded-full print-bold">
-                  رزنامة سير الاختبارات الكتابية لنهاية التكوين
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const scheduleTitle = `جدول_امتحانات_نهاية_التكوين_المتخصص_${specialty?.titleAr || 'الامتحانات'}_${formatAcademicYear(currentSession?.academicYear || '2026/2027')}`;
+                    triggerPrintWithDynamicTitle(scheduleTitle);
+                  }}
+                  className="bg-orange-600 hover:bg-orange-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>طباعة الوثيقة الرسمية (A4 عرضي)</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('timetable')}
+                  className="bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
+                >
+                  إغلاق
+                </button>
+              </div>
+            </div>
+
+            <div 
+              id="printable-official-document" 
+              className="print-document print-a4-landscape max-w-[297mm] mx-auto bg-white border-2 border-black p-8 shadow-xl font-simplified-arabic text-black print:shadow-none print:border-none print:p-0"
+              dir="rtl"
+            >
+              {/* Official Ministerial Header with Black Logo (Exact replica of PDF 1) */}
+              <div className="relative mb-3">
+                <div className="text-center font-bold text-xs md:text-sm leading-snug">
+                  <h2 className="text-sm font-bold text-black">{INSTITUTION.republic}</h2>
+                  <h3 className="text-xs font-bold text-black">{INSTITUTION.ministry}</h3>
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                  <div className="flex items-center gap-3 text-right text-[11px] leading-tight font-bold">
+                    <img 
+                      src={INSTITUTION.logoBlack} 
+                      alt="INFPE" 
+                      className="w-12 h-12 object-contain filter contrast-125 shrink-0" 
+                    />
+                    <div>
+                      <p>مديرية التكوين</p>
+                      <p>المعهد الوطني لتكوين موظفي قطاع التربية الوطنية</p>
+                      <p>الشيخ زاهية حسين " الأغواط "</p>
+                      <p className="font-semibold text-slate-800">نيابة مديرية التكوين والمسابقات والامتحانات المهنية</p>
+                      <p className="font-semibold text-slate-800">مصلحة تنظيم سير المسابقات والامتحانات المهنية</p>
+                    </div>
+                  </div>
+                  <div className="text-left text-xs font-bold pt-2">
+                    <span>السنة التكوينية: <strong className="font-mono">{formatAcademicYear(currentSession?.academicYear || '2026 / 2027')}</strong></span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Session Info Details */}
-            <div className="border border-slate-900 p-3 rounded-lg mb-4 text-xs leading-relaxed bg-slate-50/50">
-              <div className="grid grid-cols-2 gap-2">
-                <p><strong>الدورة التكوينية:</strong> {currentSession?.name}</p>
-                <p><strong>الرتبة التكوينية:</strong> {specialty?.titleAr}</p>
-                <p><strong>السنة التكوينية:</strong> <span dir="ltr">{formatAcademicYear(currentSession?.academicYear)}</span></p>
-                <p><strong>فترة الامتحانات:</strong> من {formatArabicDate(currentSession?.examStartDate || currentSession?.startDate)} إلى {formatArabicDate(currentSession?.examEndDate || currentSession?.endDate)}</p>
+              {/* Central Shaded Rounded Title Box (Exact replica of PDF 1) */}
+              <div className="my-3 mx-auto max-w-xl bg-slate-200 border-2 border-black rounded-2xl py-2.5 px-8 text-center shadow-xs">
+                <h1 className="text-base md:text-lg font-black text-black">
+                  جدول امتحانات نهاية التكوين المتخصص
+                </h1>
+                <div className="text-sm font-bold text-black mt-0.5">
+                  <span>لرتبة: </span>
+                  <span className="border-b-2 border-dotted border-black px-3 font-black text-base">{specialty?.titleAr || currentSession?.name}</span>
+                </div>
               </div>
-            </div>
 
-            {/* Official Table */}
-            <table className="w-full text-right text-xs border-collapse border-2 border-slate-900 mb-6">
-              <thead>
-                <tr className="bg-slate-200 text-slate-950 border-b-2 border-slate-900 font-bold text-center">
-                  <th className="border-r border-slate-900 p-2 w-10">#</th>
-                  <th className="border-r border-slate-900 p-2 w-28">اليوم والتاريخ</th>
-                  <th className="border-r border-slate-900 p-2 w-24">الفترة</th>
-                  <th className="border-r border-slate-900 p-2 w-28">التوقيت</th>
-                  <th className="border-r border-slate-900 p-2">مقياس الاختبار</th>
-                  <th className="border-r border-slate-900 p-2 w-14 text-center">المعامل</th>
-                  <th className="border-r border-slate-900 p-2 w-16 text-center">المدة</th>
-                  <th className="p-2 w-32">قاعات الإجراء</th>
-                </tr>
-              </thead>
-              <tbody>
-                {timetable.map((slot, idx) => {
-                  const mod = modules.find(m => m.id === slot.moduleId);
-                  const isMorning = slot.sessionTime === 'morning';
-
-                  return (
-                    <tr key={slot.id} className="border-b border-slate-400">
-                      <td className="border-r border-slate-400 p-2 text-center font-bold">{idx + 1}</td>
-                      <td className="border-r border-slate-400 p-2 font-bold font-mono">{formatArabicDate(slot.date)}</td>
-                      <td className="border-r border-slate-400 p-2 text-center">
-                        {isMorning ? 'صباحية' : 'مسائية'}
+              {/* Main Timetable Matrix Table (Exact replica of PDF 1: 6 Columns R-to-L) */}
+              <table className="w-full text-center text-xs border-collapse border-2 border-black mb-4">
+                <thead>
+                  <tr className="bg-slate-200 text-black border-b-2 border-black font-bold h-11">
+                    <th className="border border-black p-2 w-36 bg-slate-300">
+                      <div className="flex justify-between items-center px-1 text-[11px]">
+                        <span>التوقيت</span>
+                        <span className="text-slate-400">/</span>
+                        <span>التاريخ</span>
+                      </div>
+                    </th>
+                    {scheduleDays.map((d, dIdx) => (
+                      <th key={dIdx} className="border border-black p-1.5 w-1/5">
+                        <div className="text-sm font-black">{d.name}</div>
+                        <div className="text-[11px] font-mono font-bold mt-0.5 text-slate-800">{d.dateFormatted}</div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rowDefinitions.map((rowDef, rowIdx) => (
+                    <tr key={rowIdx} className={effectiveSlotsCount === 3 ? 'h-20' : 'h-26'}>
+                      <td className="border border-black p-2 font-bold bg-slate-100/70">
+                        <div className="text-xs font-black">{rowDef.title}</div>
+                        <div className="font-mono text-[11px] text-slate-700 mt-0.5">{rowDef.time}</div>
                       </td>
-                      <td className="border-r border-slate-400 p-2 font-mono text-center">{slot.timeRange}</td>
-                      <td className="border-r border-slate-400 p-2 font-bold">{mod?.titleAr}</td>
-                      <td className="border-r border-slate-400 p-2 text-center font-bold">{mod?.coefficient}</td>
-                      <td className="border-r border-slate-400 p-2 text-center">{mod ? mod.durationMinutes / 60 : 3} سا</td>
-                      <td className="p-2 text-[10px]">
-                        {rooms.map(r => r.name).join(' ، ')}
-                      </td>
+                      {scheduleDays.map((d, dIdx) => {
+                        const mod = d.slots[rowIdx];
+                        return (
+                          <td key={dIdx} className="border border-black p-2 align-middle">
+                            {mod ? (
+                              <div className="space-y-0.5">
+                                <div className="font-black text-xs md:text-sm text-black leading-tight">{mod.titleAr}</div>
+                                <div className="text-[10px] text-slate-700">
+                                  <span>المعامل: <strong className="font-mono">{mod.coefficient}</strong></span>
+                                  <span className="mx-1">•</span>
+                                  <span>المدة: <strong className="font-mono">{mod.durationMinutes ? mod.durationMinutes / 60 : (effectiveSlotsCount === 3 ? '2.5' : '3')} سا</strong></span>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-slate-300 text-sm font-mono">—</span>
+                            )}
+                          </td>
+                        );
+                      })}
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  ))}
+                </tbody>
+              </table>
 
-            {/* Official Administrative Stamp & Signatures */}
-            <div className="grid grid-cols-2 gap-8 text-center text-xs mt-8 pt-4">
-              <div>
-                <p className="font-bold text-slate-800">رئيس مصلحة تنظيم سير المسابقات والإمتحانات</p>
-                <div className="h-16"></div>
-                <p className="text-[11px] text-slate-600">(الختم والتأشيرة)</p>
-              </div>
-
-              <div>
-                <p className="font-bold text-slate-800">مدير المعهد الوطني</p>
-                <div className="h-16"></div>
-                <p className="font-bold text-slate-950">{INSTITUTION.director}</p>
+              {/* Official Director Signature (Exact replica of PDF 1 - Bottom Left) */}
+              <div className="pt-4 flex justify-end px-8" dir="rtl">
+                <div className="text-center min-w-[240px]">
+                  <p className="text-xs font-bold text-slate-900 mb-1">الأغواط في: {getCurrentArabicDate()}</p>
+                  <p className="font-black text-sm text-black">مدير المعهد</p>
+                  <div className="h-14"></div>
+                  <p className="font-bold text-xs text-slate-950">{activeDirectorName}</p>
+                  <p className="text-[10px] text-slate-600 font-bold">(الختم الرسمي والتوقيع)</p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
+
 
       {/* ========================================================================= */}
       {/* PRINT TEMPLATE 2: PROCTORING MASTER SCHEDULE (جدول تسخير الأساتذة للحراسة) */}

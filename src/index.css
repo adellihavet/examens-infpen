@@ -158,6 +158,14 @@
     size: auto;
     margin: 8mm;
   }
+  @page a4-landscape {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+  .print-a4-landscape {
+    page: a4-landscape;
+    width: 100% !important;
+  }
   @page a3-sheet {
     size: A3 landscape;
     margin: 8mm;

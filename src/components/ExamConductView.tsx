@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Users, 
   DoorOpen, 
@@ -38,7 +38,7 @@ import type { Candidate, ExamModule } from '../utils/crypto-anonymat';
 import type { AppDatabaseState, ExamRoom, ProctorTeacher, ExamSession, TimetableSlot, InstitutionSettings, SecretariatMember } from '../db/sqlite-manager';
 import { INSTITUTION } from '../constants/branding';
 import { OFFICIAL_RANKS, TRAINING_TRACKS, getRankById } from '../data/promotionsData';
-import { formatArabicDate, formatAcademicYear } from '../utils/date-formatter';
+import { formatArabicDate, formatAcademicYear, getCurrentArabicDate } from '../utils/date-formatter';
 import { 
   parseRegistrationNumber, 
   validateRegistrationNumber, 
@@ -60,7 +60,8 @@ export type PrintableDocType =
   | 'staff_badges'
   | 'transmission_sheet'
   | 'candidate_convocation'
-  | 'room_dossier_pack';
+  | 'room_dossier_pack'
+  | 'official_timetable';
 
 interface ExamConductViewProps {
   dbState: AppDatabaseState;
@@ -329,6 +330,16 @@ export const ExamConductView: React.FC<ExamConductViewProps> = ({
     }
   };
 
+  // Automatically ensure witnesses are always populated from candidates in that room
+  useEffect(() => {
+    const pool = candidates.filter(c => !pvRoomName || c.roomNumber === pvRoomName);
+    const validPool = pool.length >= 2 ? pool : candidates;
+    if (validPool.length >= 2) {
+      setWitness1({ name: validPool[0].fullName, reg: validPool[0].registrationNumber });
+      setWitness2({ name: validPool[1].fullName, reg: validPool[1].registrationNumber });
+    }
+  }, [pvRoomName, candidates]);
+
   const selectedPvModule = modules.find(m => m.id === pvModuleId) || modules[0];
   const pvCandidates = useMemo(() => {
     return candidates.filter(c => !pvRoomName || c.roomNumber === pvRoomName);
@@ -428,6 +439,8 @@ export const ExamConductView: React.FC<ExamConductViewProps> = ({
         return `جدول_تسليم_وتسلم_المواضيع_والإجابات_${modTitle}_${pvTimeSlot === 'morning' ? 'صباحا' : 'مساء'}_${targetDate}`;
       case 'envelope':
         return `ملصق_ظرف_${envelopeType === 'answers' ? 'أوراق_الإجابات' : 'مواضيع_الامتحان'}_${cleanRoom}_${modTitle}_${targetDate}`;
+      case 'official_timetable':
+        return `جدول_امتحانات_نهاية_التكوين_المتخصص_${rankTitle}_${targetDate}`;
       default:
         return `وثيقة_امتحان_${rankTitle}_${targetDate}`;
     }
@@ -571,88 +584,188 @@ export const ExamConductView: React.FC<ExamConductViewProps> = ({
 
     if (docType === 'pv_deroulement') {
       return (
-        <div className="max-w-[210mm] mx-auto min-h-[297mm] flex flex-col justify-between font-simplified-arabic text-black bg-white p-4">
-          <div>
-            {renderOfficialDocHeader()}
-
-            <div className="text-center mb-3">
-              <h1 className="text-base font-black border-2 border-black inline-block px-6 py-1 rounded bg-slate-50">
-                محضر سير الاختبارات
-              </h1>
+        <div className="max-w-[210mm] mx-auto bg-white p-8 font-simplified-arabic text-black space-y-4" dir="rtl">
+          {/* 1. Official Ministerial Header with Black Logo (Exact replica of PDF 2) */}
+          <div className="relative mb-3">
+            <div className="text-center font-bold text-xs md:text-sm leading-snug">
+              <h2 className="text-sm font-bold text-black">{INSTITUTION.republic}</h2>
+              <h3 className="text-xs font-bold text-black">{INSTITUTION.ministry}</h3>
             </div>
-
-            <div className="grid grid-cols-2 gap-2 text-xs border border-black p-2.5 rounded mb-3 bg-slate-50">
-              <div><strong>الرتبة:</strong> {currentRank.titleAr}</div>
-              <div><strong>المقياس:</strong> {selectedPvModule?.titleAr}</div>
-              <div><strong>القاعة:</strong> {pvRoomName}</div>
-              <div><strong>تاريخ وتوقيت الإجراء:</strong> {formatArabicDate(pvDate)} ({pvTimeSlot === 'morning' ? 'صباحاً' : 'مساءً'})</div>
-            </div>
-
-            {/* Statistics */}
-            <div className="border border-black p-2.5 rounded mb-3 text-xs">
-              <h4 className="font-bold mb-1.5">إحصائيات المترشحين بالقاعة:</h4>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="border border-black p-1.5 rounded">عدد المسجلين بالقاعة: <strong>{pvCandidates.length}</strong></div>
-                <div className="border border-black p-1.5 rounded">عدد الحاضرين: <strong>{pvPresentCount}</strong></div>
-                <div className="border border-black p-1.5 rounded">عدد الغائبين: <strong>{pvAbsentCandidates.length}</strong></div>
-              </div>
-            </div>
-
-            {/* AUTOMATED ABSENTEES SECTION */}
-            <div className="border border-black p-2.5 rounded mb-3 text-xs">
-              <h4 className="font-bold mb-1.5">قائمة المترشحين الغائبين (المرصودون آلياً من ورقة الحضور):</h4>
-              {pvAbsentCandidates.length === 0 ? (
-                <div className="p-2 bg-slate-50 border border-slate-300 rounded text-center text-slate-800 font-bold">
-                  ✓ لم يُسجل أي غياب في هذه القاعة (حضور تام لجميع المترشحين بنسبة 100%).
+            <div className="flex justify-between items-center mt-1">
+              <div className="flex items-center gap-3 text-right text-[11px] leading-tight font-bold">
+                <img 
+                  src={INSTITUTION.logoBlack} 
+                  alt="INFPE" 
+                  className="w-12 h-12 object-contain filter contrast-125 shrink-0" 
+                />
+                <div>
+                  <p>مديرية التكوين</p>
+                  <p>المعهد الوطني لتكوين موظفي قطاع التربية الوطنية</p>
+                  <p>الشيخ زاهية حسين - الأغواط</p>
+                  <p className="font-semibold text-slate-800">نيابة مديرية التكوين والمسابقات والامتحانات المهنية</p>
+                  <p className="font-semibold text-slate-800">مصلحة تنظيم سير المسابقات والامتحانات المهنية</p>
                 </div>
-              ) : (
-                <table className="w-full text-right text-xs border-collapse border border-black">
-                  <thead className="bg-slate-100 font-bold">
-                    <tr>
-                      <th className="border border-black py-1 px-2 text-center w-10">الرقم</th>
-                      <th className="border border-black py-1 px-3 text-center w-28">رقم التسجيل</th>
-                      <th className="border border-black py-1 px-3">اللقب والاسم الكامل</th>
-                      <th className="border border-black py-1 px-3">طبيعة ومبرر الغياب</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pvAbsentCandidates.map((cand, idx) => (
-                      <tr key={cand.id} className="border-b border-black">
-                        <td className="border border-black py-1 px-2 text-center font-mono">{idx + 1}</td>
-                        <td className="border border-black py-1 px-3 text-center font-mono font-bold">{cand.registrationNumber}</td>
-                        <td className="border border-black py-1 px-3 font-bold">{cand.fullName}</td>
-                        <td className="border border-black py-1 px-3">{cand.absenceReason || 'غياب غير مبرر'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-
-            {/* Observations */}
-            <div className="border border-black p-2.5 rounded mb-3 text-xs">
-              <h4 className="font-bold mb-1">ملاحظات وتصريحات الأساتذة الحراس حول سير الاختبار والحوادث إن وجدت:</h4>
-              <p className="text-slate-800 leading-relaxed mb-2">
-                {pvIncidents || 'سارت مجريات الاختبار في ظروف عادية وهادئة ومطابقة للتنظيم العام للامتحانات، دون تسجيل أي حادث انضباطي.'}
-              </p>
-              <div className="space-y-2 pt-1">
-                <div className="border-b border-dashed border-slate-400 h-5"></div>
-                <div className="border-b border-dashed border-slate-400 h-5"></div>
+              </div>
+              <div className="text-left text-xs font-bold pt-2">
+                <span>السنة التكوينية: <strong className="font-mono">{formatAcademicYear(currentSession?.academicYear || '2026 / 2027')}</strong></span>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 border border-black p-3 rounded text-xs mt-auto">
-            <div>
-              <span className="font-bold block mb-1">الأساتذة الحراس بالقاعة:</span>
-              <div className="space-y-1.5 pt-1 text-slate-800">
-                <div>• {proctorsList[0]?.fullName} (التوقيع: .....................)</div>
-                <div>• {proctorsList[1]?.fullName} (التوقيع: .....................)</div>
+          {/* 2. Official Title (Exact replica of PDF 2) */}
+          <div className="text-center my-3">
+            <h1 className="text-base md:text-lg font-black underline tracking-wide">
+              محضر سير الاختبارات الكتابية لنهاية التكوين لرتبة : {currentRank.titleAr}
+            </h1>
+          </div>
+
+          {/* 3. Room & Date & Time Strip (Exact replica of PDF 2) */}
+          <div className="space-y-1 text-xs font-bold mb-3">
+            <div className="text-right">
+              <span>القاعة رقم : </span>
+              <strong className="font-black text-sm border-b-2 border-dotted border-black px-4">{pvRoomName}</strong>
+            </div>
+            <div className="flex justify-between items-center pt-1">
+              <div>
+                <span>التاريخ: </span>
+                <strong className="font-mono border-b-2 border-dotted border-black px-4">{formatArabicDate(pvDate)}</strong>
+              </div>
+              <div className="flex items-center gap-2">
+                <span>التوقيت: من: </span>
+                <strong className="font-mono border-b-2 border-dotted border-black px-3">
+                  {pvTimeSlot === 'morning' 
+                    ? (currentSession?.morningTimeSlot?.split('-')[0]?.trim() || '08:30') 
+                    : (currentSession?.afternoonTimeSlot?.split('-')[0]?.trim() || '14:00')}
+                </strong>
+                <span>إلى: </span>
+                <strong className="font-mono border-b-2 border-dotted border-black px-3">
+                  {pvTimeSlot === 'morning' 
+                    ? (currentSession?.morningTimeSlot?.split('-')[1]?.trim() || '11:30') 
+                    : (currentSession?.afternoonTimeSlot?.split('-')[1]?.trim() || '17:00')}
+                </strong>
               </div>
             </div>
-            <div className="text-center flex flex-col justify-between">
-              <span className="font-bold">توقيع وختم رئيس مركز الامتحان</span>
-              <span className="text-[11px] text-slate-700 mt-4">{INSTITUTION.director}</span>
+          </div>
+
+          {/* 4. Table 1: Exam & Attendance Statistics (Exact 5 columns replica of PDF 2) */}
+          <table className="w-full text-center text-xs border-collapse border-2 border-black mb-3.5">
+            <thead className="bg-slate-100 font-bold border-b-2 border-black">
+              <tr>
+                <th className="border border-black py-1.5 px-3 w-28">رقم القاعة</th>
+                <th className="border border-black py-1.5 px-4">المقياس</th>
+                <th className="border border-black py-1.5 px-3 w-24">المسجلون</th>
+                <th className="border border-black py-1.5 px-3 w-24">الحاضرون</th>
+                <th className="border border-black py-1.5 px-3 w-24">الغائبون</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="font-bold h-9">
+                <td className="border border-black py-1.5 px-3 font-mono">{pvRoomName}</td>
+                <td className="border border-black py-1.5 px-4 font-black">{selectedPvModule?.titleAr}</td>
+                <td className="border border-black py-1.5 px-3 font-mono text-sm">{pvCandidates.length}</td>
+                <td className="border border-black py-1.5 px-3 font-mono text-sm">{pvPresentCount}</td>
+                <td className="border border-black py-1.5 px-3 font-mono text-sm">{pvAbsentCandidates.length}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* 5. Section 2: Absentees List (Exact replica of PDF 2: 3 columns with at least 5 rows) */}
+          <div className="mb-3.5">
+            <h3 className="font-black text-xs md:text-sm mb-1 underline">
+              قائمة المتكونين الغائبين:
+            </h3>
+            <table className="w-full text-right text-xs border-collapse border-2 border-black">
+              <thead className="bg-slate-100 font-bold border-b-2 border-black text-center">
+                <tr>
+                  <th className="border border-black py-1 px-2 w-14">الرقم</th>
+                  <th className="border border-black py-1 px-4">اسم ولقب المتكون(ة)</th>
+                  <th className="border border-black py-1 px-4 w-56">ملاحظات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[0, 1, 2, 3, 4].map((idx) => {
+                  const absentCand = pvAbsentCandidates[idx];
+                  return (
+                    <tr key={idx} className="h-6">
+                      <td className="border border-black py-0.5 px-2 text-center font-mono font-bold">
+                        {String(idx + 1).padStart(2, '0')}
+                      </td>
+                      <td className="border border-black py-0.5 px-4 font-bold">
+                        {absentCand ? absentCand.fullName : ''}
+                      </td>
+                      <td className="border border-black py-0.5 px-4 text-center text-[11px]">
+                        {absentCand ? (absentCand.absenceReason || 'غياب غير مبرر') : ''}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* 6. Section 3: Proctors, Signatures & Observations (Exact 3 columns replica of PDF 2) */}
+          <div className="mb-3.5">
+            <table className="w-full text-right text-xs border-collapse border-2 border-black">
+              <thead className="bg-slate-100 font-bold border-b-2 border-black text-center">
+                <tr>
+                  <th className="border border-black py-1 px-3 w-56">المكلف(ة) بالحراسة</th>
+                  <th className="border border-black py-1 px-3 w-36">التوقيع</th>
+                  <th className="border border-black py-1 px-4">ملاحظات عن سير الاختبار</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Proctor 1 */}
+                <tr className="h-12">
+                  <td className="border border-black p-2 font-bold align-middle">
+                    <div>1. {proctorsList[0]?.fullName || '...........................................'}</div>
+                    <div className="text-[10px] text-slate-700 font-normal pr-3">{proctorsList[0]?.specialty || 'أستاذ(ة) التعليم'}</div>
+                  </td>
+                  <td className="border border-black p-2 text-center align-middle">
+                    <div className="border-b border-dotted border-black w-4/5 mx-auto pt-5"></div>
+                  </td>
+                  {/* Observations spanning all proctor rows */}
+                  <td rowSpan={2} className="border border-black p-2.5 text-[11px] leading-relaxed align-top">
+                    {pvIncidents && pvIncidents.trim() ? (
+                      <p className="font-semibold text-black leading-relaxed">
+                        {pvIncidents}
+                      </p>
+                    ) : (
+                      <div className="space-y-3 pt-1">
+                        <div className="border-b border-dotted border-black h-4"></div>
+                        <div className="border-b border-dotted border-black h-4"></div>
+                        <div className="border-b border-dotted border-black h-4"></div>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+
+                {/* Proctor 2 */}
+                <tr className="h-12">
+                  <td className="border border-black p-2 font-bold align-middle">
+                    <div>2. {proctorsList[1]?.fullName || '...........................................'}</div>
+                    <div className="text-[10px] text-slate-700 font-normal pr-3">{proctorsList[1]?.specialty || 'أستاذ(ة) التعليم'}</div>
+                  </td>
+                  <td className="border border-black p-2 text-center align-middle">
+                    <div className="border-b border-dotted border-black w-4/5 mx-auto pt-5"></div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* 7. Bottom Signatures (Exact replica of PDF 2 - Compact & Harmonious) */}
+          <div className="pt-4 border-t border-slate-300 flex justify-between items-start text-xs font-bold text-center px-12">
+            <div>
+              <p className="font-black text-sm">رئيس المصلحة</p>
+              <p className="font-bold text-[11px] text-slate-800">والمسابقات والامتحانات المهنية</p>
+              <div className="h-12"></div>
+              <p className="text-[10px] text-slate-600 font-bold">(التأشيرة والختم)</p>
+            </div>
+            <div>
+              <p className="font-black text-sm">نائب مدير التكوين</p>
+              <p className="font-bold text-[11px] text-slate-800">والمسابقات والامتحانات المهنية</p>
+              <div className="h-12"></div>
+              <p className="text-[10px] text-slate-600 font-bold">(التأشيرة والختم)</p>
             </div>
           </div>
         </div>
@@ -661,52 +774,188 @@ export const ExamConductView: React.FC<ExamConductViewProps> = ({
 
     if (docType === 'pv_descellement') {
       return (
-        <div className="max-w-[210mm] mx-auto min-h-[297mm] flex flex-col justify-between font-simplified-arabic text-black bg-white p-4">
-          <div>
-            {renderOfficialDocHeader()}
-
-            <div className="text-center mb-4">
-              <h1 className="text-base font-black border-2 border-black inline-block px-6 py-1 rounded bg-slate-50">
-                محضر فك أختام مواضيع الاختبار (PV d'Ouverture et de Descellement)
-              </h1>
+        <div className="max-w-[210mm] mx-auto bg-white p-8 font-simplified-arabic text-black space-y-3.5" dir="rtl">
+          {/* 1. Official Ministerial Header with Black Logo (Exact replica of PDF 3) */}
+          <div className="relative mb-3">
+            <div className="text-center font-bold text-xs md:text-sm leading-snug">
+              <h2 className="text-sm font-bold text-black">{INSTITUTION.republic}</h2>
+              <h3 className="text-xs font-bold text-black">{INSTITUTION.ministry}</h3>
             </div>
-
-            <div className="text-xs leading-relaxed space-y-3 p-4 border border-black rounded mb-4">
-              <p>
-                نحن الموقعون أسفله، الأساتذة الحراس ومترشحا القاعة الشاهدان، نشهد بأننا عاينّا الظرف المشمع الحاوي لمواضيع اختبار مقياس: <strong>{selectedPvModule?.titleAr}</strong> المخصص لـ <strong>{currentRank.titleAr}</strong>، بقاعة الامتحان: <strong>{pvRoomName}</strong>.
-              </p>
-              <p>
-                ونشهد بأن الظرف كان سليماً ومحكم الإغلاق بالشمع الأحمر وخالياً من أي أثر للفتح أو التمزيق، وقد تم فك أختامه رسمياً بحضورنا عند تمام الساعة: <strong>{pvTimeSlot === 'morning' ? '08:30' : '14:00'}</strong> بتاريخ: <strong>{formatArabicDate(pvDate)}</strong>.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 border border-black p-3 rounded text-xs mb-4">
-              <div>
-                <h4 className="font-bold mb-2">الشاهد الأول من المترشحين:</h4>
-                <div>الاسم واللقب: <strong>{witness1.name || '...........................................'}</strong></div>
-                <div>رقم التسجيل: <strong>{witness1.reg || '...........................................'}</strong></div>
-                <div className="mt-4">التوقيع: .......................................</div>
+            <div className="flex justify-between items-center mt-1">
+              <div className="flex items-center gap-3 text-right text-[11px] leading-tight font-bold">
+                <img 
+                  src={INSTITUTION.logoBlack} 
+                  alt="INFPE" 
+                  className="w-12 h-12 object-contain filter contrast-125 shrink-0" 
+                />
+                <div>
+                  <p>مديرية التكوين</p>
+                  <p>المعهد الوطني لتكوين موظفي قطاع التربية الوطنية</p>
+                  <p>الشيخ زاهية حسين - الأغواط</p>
+                  <p className="font-semibold text-slate-800">نيابة مديرية التكوين والمسابقات والامتحانات المهنية</p>
+                  <p className="font-semibold text-slate-800">مصلحة تنظيم سير المسابقات والامتحانات المهنية</p>
+                </div>
               </div>
-              <div>
-                <h4 className="font-bold mb-2">الشاهد الثاني من المترشحين:</h4>
-                <div>الاسم واللقب: <strong>{witness2.name || '...........................................'}</strong></div>
-                <div>رقم التسجيل: <strong>{witness2.reg || '...........................................'}</strong></div>
-                <div className="mt-4">التوقيع: .......................................</div>
+              <div className="text-left text-xs font-bold pt-2">
+                <span>السنة التكوينية : <strong className="font-mono">{formatAcademicYear(currentSession?.academicYear || '2026 / 2027')}</strong></span>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 border border-black p-3 rounded text-xs mt-auto">
-            <div>
-              <span className="font-bold block mb-1">الأساتذة الحراس بالقاعة:</span>
-              <div className="space-y-1.5 pt-1 text-slate-800">
-                <div>• {proctorsList[0]?.fullName} (التوقيع: .....................)</div>
-                <div>• {proctorsList[1]?.fullName} (التوقيع: .....................)</div>
+          {/* 2. Official Title (Exact replica of PDF 3) */}
+          <div className="text-center my-3 space-y-1">
+            <h1 className="text-base md:text-lg font-black tracking-wide">
+              محــــــضر فك الأختــــــــــام لمواضيع امتحان نهاية التكوين المتخصص
+            </h1>
+            <div className="text-sm md:text-base font-bold flex items-center justify-center gap-2">
+              <span>لرتبــــة : </span>
+              <span className="font-black border-2 border-black px-4 py-0.5 rounded bg-slate-50">{currentRank.titleAr}</span>
+            </div>
+          </div>
+
+          {/* 3. Room (Blank dotted line for manual assignment on exam day) */}
+          <div className="text-xs font-bold mb-2 text-right">
+            <span>القاعة رقم : </span>
+            <span className="font-mono text-xs tracking-wider">....................................................................................................</span>
+          </div>
+
+          {/* 4. Signers Introduction */}
+          <div className="text-xs leading-relaxed space-y-1.5 mb-2.5 bg-slate-50/50 p-2.5 border border-slate-300 rounded">
+            <div className="font-bold">
+              نحـــن الموقعين أسفله : - السيـــد : <span className="font-black px-2 underline underline-offset-4">{activeDirectorName}</span> مدير المعهد
+            </div>
+            <div className="font-bold">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- السيد : <span className="font-mono text-xs tracking-wider">................................................................................................</span> نــائب مديرية التكوين و المسابقات و الإمتحانات المهنية
+            </div>
+          </div>
+
+          {/* 5. Candidates Witnesses (عن المتكونين - Blank dotted lines for manual completion) */}
+          <div className="text-xs mb-2.5 space-y-1.5 border border-black p-2.5 rounded bg-white">
+            <div className="font-black underline mb-1">عن المتكونين :</div>
+            <div className="flex justify-between items-center pr-2">
+              <div className="flex-1">
+                <span>-1 السيد (ة): </span>
+                <span className="font-mono text-xs tracking-wider">...................................................................................</span>
+              </div>
+              <div className="w-56 text-left">
+                <span>رقم التسجيل : </span>
+                <span className="font-mono text-xs tracking-wider">................................</span>
               </div>
             </div>
-            <div className="text-center flex flex-col justify-between">
-              <span className="font-bold">تأشيرة رئيس المركز</span>
-              <span className="text-[11px] text-slate-700 mt-6">{INSTITUTION.director}</span>
+            <div className="flex justify-between items-center pr-2 pt-0.5">
+              <div className="flex-1">
+                <span>-2 السيد (ة): </span>
+                <span className="font-mono text-xs tracking-wider">...................................................................................</span>
+              </div>
+              <div className="w-56 text-left">
+                <span>رقم التسجيل : </span>
+                <span className="font-mono text-xs tracking-wider">................................</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 6. Proctors (السادة والسيدات الحراس - Blank dotted lines for manual completion) */}
+          <div className="text-xs mb-2.5 space-y-1.5 border border-black p-2.5 rounded bg-white">
+            <div className="font-black underline mb-1">الســـــادة والسيدات الحراس:</div>
+            
+            <div className="space-y-1 pr-2">
+              <div className="flex justify-between items-center">
+                <div className="flex-1">
+                  <span>-1 السيد(ة): </span>
+                  <span className="font-mono text-xs tracking-wider">...................................................................................</span>
+                </div>
+                <div className="w-56 text-left">
+                  <span>أستاذ(ة): </span>
+                  <span className="font-mono text-xs tracking-wider">..................................</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-slate-800">
+                <span>ب.ت.و/ر.س رقـــم: </span>
+                <span className="font-mono text-xs tracking-wider">...................................</span>
+                <span>الصادرة بتاريخ: </span>
+                <span className="font-mono text-xs tracking-wider">..............................</span>
+                <span>عن: </span>
+                <span className="font-mono text-xs tracking-wider">.........................</span>
+              </div>
+            </div>
+
+            <div className="space-y-1 pr-2 pt-1 border-t border-slate-200">
+              <div className="flex justify-between items-center">
+                <div className="flex-1">
+                  <span>-2 السيد(ة): </span>
+                  <span className="font-mono text-xs tracking-wider">.............................................................</span>
+                </div>
+                <div className="w-56 text-left">
+                  <span>أستاذ(ة): </span>
+                  <span className="font-mono text-xs tracking-wider">..................................</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-slate-800">
+                <span>ب.ت.و/ر.س رقـــم: </span>
+                <span className="font-mono text-xs tracking-wider">...................................</span>
+                <span>الصادرة بتاريخ: </span>
+                <span className="font-mono text-xs tracking-wider">..............................</span>
+                <span>عن: </span>
+                <span className="font-mono text-xs tracking-wider">.........................</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 7. Certification Formal Paragraph (Only Module name and Date are auto-filled) */}
+          <div className="text-xs leading-loose border-2 border-black p-3 rounded mb-2.5 bg-slate-50 font-medium">
+            <p>
+              نشهد ونثبت بأننا فتحنا الظرف لمقياس : <strong className="font-black text-sm px-1.5 underline underline-offset-4">{selectedPvModule?.titleAr || '................................'}</strong> لأول مرة على الساعة : <span className="font-mono text-xs tracking-wider">.......................</span>
+            </p>
+            <p>
+              من يوم : <strong className="font-black px-1.5 underline underline-offset-4">{formatArabicDate(pvDate)}</strong> وأخرجنا : <span className="font-mono text-xs tracking-wider">......................................</span> موضوعا في امتحان : <span className="font-mono text-xs tracking-wider">.................................................</span> المقرر ليوم : <span className="font-mono text-xs tracking-wider">.........................</span>
+            </p>
+            <p>
+              من الساعة : <span className="font-mono text-xs tracking-wider">.......................</span> الى الساعة : <span className="font-mono text-xs tracking-wider">.......................</span> بالقاعة رقم : <span className="font-mono text-xs tracking-wider">.......................</span>
+            </p>
+          </div>
+
+          {/* 8. Signatures Table (Exact replica of PDF 3) */}
+          <div className="mb-2.5">
+            <div className="text-center font-black text-sm mb-1 underline">الإمضـــاءات</div>
+            <table className="w-full text-center text-xs border-collapse border-2 border-black">
+              <thead className="bg-slate-100 font-bold border-b-2 border-black">
+                <tr>
+                  <th className="border border-black py-1 px-3 w-1/2">إمضـــاء المكلفين بالحراسة</th>
+                  <th className="border border-black py-1 px-3 w-1/2">إمضـــاء المتكونين</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="h-9">
+                  <td className="border border-black p-2 text-right">
+                    <span>1- .......................................................................</span>
+                  </td>
+                  <td className="border border-black p-2 text-right">
+                    <span>1- .......................................................................</span>
+                  </td>
+                </tr>
+                <tr className="h-9">
+                  <td className="border border-black p-2 text-right">
+                    <span>2- .......................................................................</span>
+                  </td>
+                  <td className="border border-black p-2 text-right">
+                    <span>2- .......................................................................</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* 9. Signatures at bottom (Compact and balanced) */}
+          <div className="pt-3 border-t border-slate-300 flex justify-between items-start text-xs font-bold text-center px-10">
+            <div>
+              <p className="font-black text-sm">رئيس المصلحة</p>
+              <div className="h-10"></div>
+              <p className="text-[10px] text-slate-600 font-bold">(التأشيرة والختم)</p>
+            </div>
+            <div>
+              <p className="font-black text-sm">نائب مديرية التكوين و المسابقات و الامتحانات المهنية</p>
+              <div className="h-10"></div>
+              <p className="text-[10px] text-slate-600 font-bold">(التأشيرة والختم)</p>
             </div>
           </div>
         </div>
@@ -715,42 +964,275 @@ export const ExamConductView: React.FC<ExamConductViewProps> = ({
 
     if (docType === 'envelope') {
       return (
-        <div className="max-w-[210mm] mx-auto p-4 border-4 border-black rounded-xl font-simplified-arabic text-black bg-white">
-          {renderOfficialDocHeader()}
+        <div className="max-w-[297mm] mx-auto p-6 md:p-8 border-8 border-double border-black font-simplified-arabic text-black bg-white shadow-xl relative min-h-[190mm] flex flex-col justify-between" dir="rtl">
+          <div>
+            {/* 1. Official Ministerial Header with Black Logo (Exact replica of PDF 4) */}
+            <div className="relative mb-3">
+              <div className="text-center font-bold text-xs md:text-sm leading-snug">
+                <h2 className="text-sm font-bold text-black">{INSTITUTION.republic}</h2>
+                <h3 className="text-xs font-bold text-black">{INSTITUTION.ministry}</h3>
+              </div>
+              <div className="flex justify-between items-center mt-1">
+                <div className="flex items-center gap-3 text-right text-[11px] leading-tight font-bold">
+                  <img 
+                    src={INSTITUTION.logoBlack} 
+                    alt="INFPE" 
+                    className="w-12 h-12 object-contain filter contrast-125 shrink-0" 
+                  />
+                  <div>
+                    <p>مديرية التكوين</p>
+                    <p>المعهد الوطني لتكوين موظفي قطاع التربية الوطنية</p>
+                    <p>الشيخ زاهية حسين بالأغواط</p>
+                    <p className="font-semibold text-slate-800">نيابة مديرية التكوين و المسابقات و الإمتحانات المهنية</p>
+                  </div>
+                </div>
+                <div className="text-left text-xs font-bold pt-2">
+                  <span>السنة التكوينية : <strong className="font-mono">{formatAcademicYear(currentSession?.academicYear || '2026 / 2027')}</strong></span>
+                </div>
+              </div>
+            </div>
 
-          <div className="text-center my-3">
-            <span className="inline-block bg-black text-white font-bold text-sm px-6 py-1 rounded mb-2">
-              {envelopeType === 'answers' ? 'ظرف أوراق الإجابات المشمع' : 'ظرف مواضيع الامتحان المشمع'}
-            </span>
-            <h2 className="text-xl font-black text-black">{currentRank.titleAr}</h2>
-            <div className="text-base font-bold text-black mt-1">
-              المقياس: {selectedEnvelopeModule?.titleAr}
+            {/* 2. Major Title (Exact replica of PDF 4) */}
+            <div className="text-center my-6">
+              <h1 className="text-2xl md:text-3xl font-black tracking-widest text-black">
+                {envelopeType === 'answers' 
+                  ? 'أوراق إجـابــــات نهــــــــــــــــــــــــــــــــــايــــة التكويــــــن'
+                  : 'إمتحــــــــــانـــــــــــــات نهــــــــــــــــــــــــــــــــــايــــة التكويــــــن'}
+              </h1>
+            </div>
+
+            {/* 3. Central Shaded Rounded Box for Module (Exact replica of PDF 4) */}
+            <div className="my-6 mx-auto max-w-2xl bg-slate-200/90 border-2 border-black rounded-2xl py-4 px-8 text-center shadow-xs">
+              <div className="text-xl md:text-2xl font-black text-black">
+                <span>المقياس : </span>
+                <span className="underline decoration-2 underline-offset-4">{selectedEnvelopeModule?.titleAr}</span>
+              </div>
+            </div>
+
+            {/* 4. Metadata lines (Exact replica of PDF 4) */}
+            <div className="space-y-4 text-sm md:text-base font-bold my-6 px-4">
+              <div className="border-b border-black pb-2 flex items-center justify-between">
+                <div>
+                  <span>السلك : </span>
+                  <strong className="text-slate-900">{currentRank.category || 'موظفو إدارة التفتيش والتربية والتكوين'}</strong>
+                </div>
+                <div>
+                  <span>- الرتبة : </span>
+                  <strong className="text-black text-lg">{currentRank.titleAr}</strong>
+                </div>
+              </div>
+
+              <div className="border-b border-black pb-2 flex items-center justify-between">
+                <div>
+                  <span>التاريخ : </span>
+                  <strong className="font-mono text-black">{formatArabicDate(pvDate)}</strong>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span>التوقيت : من : </span>
+                  <strong className="font-mono text-black">
+                    {pvTimeSlot === 'morning' 
+                      ? (currentSession?.morningTimeSlot?.split('-')[0]?.trim() || '08:30') 
+                      : (currentSession?.afternoonTimeSlot?.split('-')[0]?.trim() || '14:00')}
+                  </strong>
+                  <span>إلى : </span>
+                  <strong className="font-mono text-black">
+                    {pvTimeSlot === 'morning' 
+                      ? (currentSession?.morningTimeSlot?.split('-')[1]?.trim() || '11:30') 
+                      : (currentSession?.afternoonTimeSlot?.split('-')[1]?.trim() || '17:00')}
+                  </strong>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 text-xs border-t-2 border-b-2 border-black py-2.5 font-semibold mb-3">
-            <div>القاعة: <span className="font-bold text-black text-sm">{envelopeRoomName}</span></div>
-            <div>الدورة التكوينية: <span className="font-bold">{formatAcademicYear(currentSession?.academicYear || '2026 / 2027')}</span></div>
-            <div>تاريخ الإجراء: <span className="font-bold font-mono">{formatArabicDate(pvDate)}</span></div>
-            <div>عدد الأوراق بالظرف: <span className="font-bold font-mono text-sm">{envelopeCandidates.length} ورقة</span></div>
-            <div className="col-span-2">
-              مجال أرقام التسجيل بالقاعة: من <span className="font-bold font-mono text-black text-sm">{envFirstReg}</span> إلى <span className="font-bold font-mono text-black text-sm">{envLastReg}</span>
+          {/* 5. Bottom count box & label (Exact replica of PDF 4) */}
+          <div className="mt-8 pt-4 flex items-center justify-between px-4">
+            <div className="border-2 border-black rounded-xl p-3 bg-slate-50 min-w-[220px] text-center shadow-xs">
+              <span className="text-base md:text-lg font-black font-mono">
+                {envelopeType === 'answers' 
+                  ? `${selectedRoomCandidates.length} ورقة (${envelopeRoomName})`
+                  : `${selectedRoomCandidates.length + 1} نسخة (${envelopeRoomName})`}
+              </span>
+              <div className="text-[10px] text-slate-600 font-bold mt-0.5">
+                {envelopeType === 'answers'
+                  ? `أرقام التسجيل: من ${envFirstReg} إلى ${envLastReg}`
+                  : `${selectedRoomCandidates.length} للمترشحين + 01 احتياطية للأمانة`}
+              </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4 text-center text-xs">
-            <div className="border border-black p-3 rounded h-24 flex flex-col justify-between">
-              <span className="font-bold">توقيعات الأساتذة الحراس بالقاعة:</span>
-              <span className="text-slate-400">...................................................</span>
-            </div>
-            <div className="border border-black p-3 rounded h-24 flex flex-col justify-between">
-              <span className="font-bold">توقيع وختم رئيس مركز الامتحان:</span>
-              <span className="text-[11px] text-slate-700">{INSTITUTION.director}</span>
+            <div className="text-base md:text-lg font-black">
+              <span>{envelopeType === 'answers' ? 'عدد أوراق الإجابات المشمعة بالظرف:' : 'عدد نسخ مواضيع الإمتحان:'}</span>
             </div>
           </div>
         </div>
       );
     }
+
+    if (docType === 'official_timetable') {
+      const baseExamDate = new Date(currentSession?.examStartDate || currentSession?.startDate || '2027-06-13');
+      const timetable = dbState.timetable || [];
+
+      // Automatically determine if any day has 3 slots
+      let effectiveSlotsCount: 2 | 3 = 2;
+      if (timetable.length > 0) {
+        const countByDate: Record<string, number> = {};
+        timetable.forEach(s => { countByDate[s.date] = (countByDate[s.date] || 0) + 1; });
+        if (Object.values(countByDate).some(c => c >= 3)) {
+          effectiveSlotsCount = 3;
+        }
+      }
+
+      const scheduleDays: { 
+        name: string; 
+        dateFormatted: string; 
+        slots: (ExamModule | undefined)[];
+      }[] = [
+        { name: 'الأحــــــد', dateFormatted: '', slots: [] },
+        { name: 'الإثنين', dateFormatted: '', slots: [] },
+        { name: 'الثلاثاء', dateFormatted: '' , slots: []},
+        { name: 'الأربعاء', dateFormatted: '', slots: [] },
+        { name: 'الخميس', dateFormatted: '', slots: [] }
+      ];
+
+      for (let i = 0; i < 5; i++) {
+        const d = new Date(baseExamDate);
+        d.setDate(baseExamDate.getDate() + i);
+        scheduleDays[i].dateFormatted = formatArabicDate(d);
+        scheduleDays[i].slots = Array(effectiveSlotsCount).fill(undefined);
+      }
+
+      if (timetable.length > 0) {
+        scheduleDays.forEach((day, dIdx) => {
+          for (let sIdx = 0; sIdx < effectiveSlotsCount; sIdx++) {
+            const slotItem = timetable[dIdx * effectiveSlotsCount + sIdx];
+            if (slotItem) {
+              day.slots[sIdx] = modules.find(m => m.id === slotItem.moduleId);
+            }
+          }
+        });
+      } else {
+        modules.forEach((mod, idx) => {
+          const dayIdx = Math.floor(idx / effectiveSlotsCount);
+          const slotIdx = idx % effectiveSlotsCount;
+          if (dayIdx < 5) {
+            scheduleDays[dayIdx].slots[slotIdx] = mod;
+          }
+        });
+      }
+
+      const rowDefinitions = effectiveSlotsCount === 3 ? [
+        { title: 'الفترة الصباحية الأولى', time: '08:00 - 10:30' },
+        { title: 'الفترة الصباحية الثانية', time: '11:00 - 13:30' },
+        { title: 'الفترة المسائية', time: '14:30 - 17:00' }
+      ] : [
+        { title: 'الفترة الصباحية', time: currentSession?.morningTimeSlot || '08:30 - 11:30' },
+        { title: 'الفترة المسائية', time: currentSession?.afternoonTimeSlot || '14:00 - 17:00' }
+      ];
+
+      return (
+        <div className="print-a4-landscape max-w-[297mm] mx-auto bg-white border-2 border-black p-8 shadow-xl font-simplified-arabic text-black print:shadow-none print:border-none print:p-0" dir="rtl">
+          {/* Official Ministerial Header with Black Logo (Exact replica of PDF 1) */}
+          <div className="relative mb-3">
+            <div className="text-center font-bold text-xs md:text-sm leading-snug">
+              <h2 className="text-sm font-bold text-black">{INSTITUTION.republic}</h2>
+              <h3 className="text-xs font-bold text-black">{INSTITUTION.ministry}</h3>
+            </div>
+            <div className="flex justify-between items-center mt-1">
+              <div className="flex items-center gap-3 text-right text-[11px] leading-tight font-bold">
+                <img 
+                  src={INSTITUTION.logoBlack} 
+                  alt="INFPE" 
+                  className="w-12 h-12 object-contain filter contrast-125 shrink-0" 
+                />
+                <div>
+                  <p>مديرية التكوين</p>
+                  <p>المعهد الوطني لتكوين موظفي قطاع التربية الوطنية</p>
+                  <p>الشيخ زاهية حسين " الأغواط "</p>
+                  <p className="font-semibold text-slate-800">نيابة مديرية التكوين والمسابقات والامتحانات المهنية</p>
+                  <p className="font-semibold text-slate-800">مصلحة تنظيم سير المسابقات والامتحانات المهنية</p>
+                </div>
+              </div>
+              <div className="text-left text-xs font-bold pt-2">
+                <span>السنة التكوينية: <strong className="font-mono">{formatAcademicYear(currentSession?.academicYear || '2026 / 2027')}</strong></span>
+              </div>
+            </div>
+          </div>
+
+          {/* Central Shaded Rounded Title Box (Exact replica of PDF 1) */}
+          <div className="my-3 mx-auto max-w-xl bg-slate-200 border-2 border-black rounded-2xl py-2.5 px-8 text-center shadow-xs">
+            <h1 className="text-base md:text-lg font-black text-black">
+              جدول امتحانات نهاية التكوين المتخصص
+            </h1>
+            <div className="text-sm font-bold text-black mt-0.5">
+              <span>لرتبة: </span>
+              <span className="border-b-2 border-dotted border-black px-3 font-black text-base">{currentRank.titleAr}</span>
+            </div>
+          </div>
+
+          {/* Main Timetable Matrix Table (Exact replica of PDF 1: 6 Columns R-to-L) */}
+          <table className="w-full text-center text-xs border-collapse border-2 border-black mb-4">
+            <thead>
+              <tr className="bg-slate-200 text-black border-b-2 border-black font-bold h-11">
+                <th className="border border-black p-2 w-36 bg-slate-300">
+                  <div className="flex justify-between items-center px-1 text-[11px]">
+                    <span>التوقيت</span>
+                    <span className="text-slate-400">/</span>
+                    <span>التاريخ</span>
+                  </div>
+                </th>
+                {scheduleDays.map((d, dIdx) => (
+                  <th key={dIdx} className="border border-black p-1.5 w-1/5">
+                    <div className="text-sm font-black">{d.name}</div>
+                    <div className="text-[11px] font-mono font-bold mt-0.5 text-slate-800">{d.dateFormatted}</div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rowDefinitions.map((rowDef, rowIdx) => (
+                <tr key={rowIdx} className={effectiveSlotsCount === 3 ? 'h-20' : 'h-26'}>
+                  <td className="border border-black p-2 font-bold bg-slate-100/70">
+                    <div className="text-xs font-black">{rowDef.title}</div>
+                    <div className="font-mono text-[11px] text-slate-700 mt-0.5">{rowDef.time}</div>
+                  </td>
+                  {scheduleDays.map((d, dIdx) => {
+                    const mod = d.slots[rowIdx];
+                    return (
+                      <td key={dIdx} className="border border-black p-2 align-middle">
+                        {mod ? (
+                          <div className="space-y-0.5">
+                            <div className="font-black text-xs md:text-sm text-black leading-tight">{mod.titleAr}</div>
+                            <div className="text-[10px] text-slate-700">
+                              <span>المعامل: <strong className="font-mono">{mod.coefficient}</strong></span>
+                              <span className="mx-1">•</span>
+                              <span>المدة: <strong className="font-mono">{mod.durationMinutes ? mod.durationMinutes / 60 : (effectiveSlotsCount === 3 ? '2.5' : '3')} سا</strong></span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-slate-300 text-sm font-mono">—</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Official Director Signature (Exact replica of PDF 1 - Bottom Left) */}
+          <div className="pt-4 flex justify-end px-8" dir="rtl">
+            <div className="text-center min-w-[240px]">
+              <p className="text-xs font-bold text-slate-900 mb-1">الأغواط في: {getCurrentArabicDate()}</p>
+              <p className="font-black text-sm text-black">مدير المعهد</p>
+              <div className="h-14"></div>
+              <p className="font-bold text-xs text-slate-950">{activeDirectorName}</p>
+              <p className="text-[10px] text-slate-600 font-bold">(الختم الرسمي والتوقيع)</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
 
     // 1. ملصقات طاولات المترشحين (Étiquettes de tables - سقف 20 / شبكة A4 مع خطوط قص متقطعة)
     if (docType === 'desk_labels') {
@@ -2040,6 +2522,17 @@ export const ExamConductView: React.FC<ExamConductViewProps> = ({
                 <ShieldCheck className="w-4 h-4 text-amber-600" />
                 <span>محضر فك الأختام (A4)</span>
               </button>
+
+              <button
+                onClick={() => setPreviewDocument({
+                  type: 'official_timetable',
+                  title: `جدول امتحانات نهاية التكوين المتخصص - ${currentRank.titleAr}`
+                })}
+                className="relative inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-800 bg-gradient-to-b from-slate-100 to-slate-200 border border-slate-300 border-b-4 border-b-slate-400 shadow-[0_3px_0_#94a3b8] active:translate-y-0.5 active:border-b-2 transition-all cursor-pointer select-none"
+              >
+                <CalendarDays className="w-4 h-4 text-orange-600" />
+                <span>رزنامة الاختبارات (A4 عرضي)</span>
+              </button>
             </div>
           </div>
 
@@ -2798,40 +3291,93 @@ export const ExamConductView: React.FC<ExamConductViewProps> = ({
               )}
 
               {subDocType === 'envelope' && (
-                <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-5 text-slate-900 bg-white">
-                  <div className="text-center border-b-2 border-slate-800 pb-3">
-                    <h3 className="font-bold text-sm">{INSTITUTION.republic}</h3>
-                    <h4 className="font-bold text-xs text-slate-700">{INSTITUTION.ministry}</h4>
-                    <h4 className="font-bold text-sm text-slate-800 mt-0.5">{INSTITUTION.name}</h4>
-                    <p className="text-[11px] text-slate-600">{INSTITUTION.deputyDirectorate} • {INSTITUTION.service}</p>
-                  </div>
-
-                  <div className="py-3 text-center">
-                    <span className="inline-block bg-slate-900 text-white font-bold text-xs px-4 py-1 rounded mb-1.5">
-                      {envelopeType === 'answers' ? 'ظرف أوراق الإجابات المشمع' : 'ظرف مواضيع الامتحان المشمع'}
-                    </span>
-                    <h2 className="text-lg font-black text-slate-900">{currentRank.titleAr}</h2>
-                    <div className="text-xs font-bold text-orange-700 mt-0.5">
-                      المقياس: {selectedEnvelopeModule?.titleAr}
+                <div className="border-8 border-double border-black p-6 font-simplified-arabic text-black bg-white shadow-sm space-y-4">
+                  {/* Official Ministerial Header */}
+                  <div className="relative border-b-2 border-black pb-2 text-center leading-snug">
+                    <h4 className="font-bold text-xs">{INSTITUTION.republic}</h4>
+                    <h5 className="font-bold text-[11px] text-slate-800">{INSTITUTION.ministry}</h5>
+                    <div className="flex justify-between items-start mt-1 text-[11px] font-bold">
+                      <div className="text-right">
+                        <p>مديرية التكوين</p>
+                        <p>المعهد الوطني لتكوين موظفي قطاع التربية الوطنية</p>
+                        <p>الشيخ زاهية حسين بالأغواط</p>
+                        <p className="font-semibold text-slate-700">نيابة مديرية التكوين و المسابقات و الإمتحانات المهنية</p>
+                      </div>
+                      <div className="text-left font-mono pt-1">
+                        السنة التكوينية : {formatAcademicYear(currentSession?.academicYear || '2026 / 2027')}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-xs border-t border-b border-slate-300 py-2.5 font-semibold">
-                    <div>القاعة: <span className="font-bold text-slate-900">{envelopeRoomName}</span></div>
-                    <div>الدورة التكوينية: <span className="font-bold">{formatAcademicYear(currentSession?.academicYear || '2026 / 2027')}</span></div>
-                    <div>تاريخ وتوقيت الإجراء: <span className="font-bold font-mono">{formatArabicDate(pvDate)}</span></div>
-                    <div>عدد الأوراق بالداخل: <span className="font-bold font-mono">{selectedRoomCandidates.length} ورقة</span></div>
-                    <div className="col-span-2">مجال أرقام التسجيل: من <span className="font-bold font-mono text-orange-700">{envFirstReg}</span> إلى <span className="font-bold font-mono text-orange-700">{envLastReg}</span></div>
+                  {/* Major Title */}
+                  <div className="text-center py-2">
+                    <h2 className="text-xl md:text-2xl font-black text-black tracking-wide">
+                      {envelopeType === 'answers' 
+                        ? 'أوراق إجـابــــات نهــــــــــــــــــــــــــــــــــايــــة التكويــــــن'
+                        : 'إمتحــــــــــانـــــــــــــات نهــــــــــــــــــــــــــــــــــايــــة التكويــــــن'}
+                    </h2>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 mt-4 pt-1 text-center text-xs">
-                    <div className="border border-slate-300 p-2.5 rounded h-20 flex flex-col justify-between">
-                      <span className="font-bold text-[11px]">توقيعات الأساتذة الحراس:</span>
-                      <span className="text-[9px] text-slate-400">..................................</span>
+                  {/* Central Shaded Rounded Box for Module */}
+                  <div className="my-3 mx-auto max-w-xl bg-slate-200 border-2 border-black rounded-2xl py-3 px-6 text-center">
+                    <div className="text-lg md:text-xl font-black text-black">
+                      <span>المقياس : </span>
+                      <span className="underline decoration-2 underline-offset-4">{selectedEnvelopeModule?.titleAr}</span>
                     </div>
-                    <div className="border border-slate-300 p-2.5 rounded h-20 flex flex-col justify-between">
-                      <span className="font-bold text-[11px]">ختم وإمضاء رئيس مركز الامتحان:</span>
-                      <span className="text-[10px] text-slate-600">{activeDirectorName}</span>
+                  </div>
+
+                  {/* Metadata Lines */}
+                  <div className="space-y-2 text-xs md:text-sm font-bold px-2">
+                    <div className="border-b border-black pb-1.5 flex items-center justify-between">
+                      <div>
+                        <span>السلك : </span>
+                        <strong className="text-slate-900">{currentRank.category || 'موظفو إدارة التفتيش والتربية والتكوين'}</strong>
+                      </div>
+                      <div>
+                        <span>- الرتبة : </span>
+                        <strong className="text-black text-base">{currentRank.titleAr}</strong>
+                      </div>
+                    </div>
+
+                    <div className="border-b border-black pb-1.5 flex items-center justify-between">
+                      <div>
+                        <span>التاريخ : </span>
+                        <strong className="font-mono text-black">{formatArabicDate(pvDate)}</strong>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span>التوقيت : من : </span>
+                        <strong className="font-mono text-black">
+                          {pvTimeSlot === 'morning' 
+                            ? (currentSession?.morningTimeSlot?.split('-')[0]?.trim() || '08:30') 
+                            : (currentSession?.afternoonTimeSlot?.split('-')[0]?.trim() || '14:00')}
+                        </strong>
+                        <span>إلى : </span>
+                        <strong className="font-mono text-black">
+                          {pvTimeSlot === 'morning' 
+                            ? (currentSession?.morningTimeSlot?.split('-')[1]?.trim() || '11:30') 
+                            : (currentSession?.afternoonTimeSlot?.split('-')[1]?.trim() || '17:00')}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bottom count box & label */}
+                  <div className="pt-2 flex items-center justify-between px-2">
+                    <div className="border-2 border-black rounded-xl p-2.5 bg-slate-50 min-w-[200px] text-center">
+                      <span className="text-sm md:text-base font-black font-mono">
+                        {envelopeType === 'answers' 
+                          ? `${selectedRoomCandidates.length} ورقة (${envelopeRoomName})`
+                          : `${selectedRoomCandidates.length + 1} نسخة (${envelopeRoomName})`}
+                      </span>
+                      <div className="text-[10px] text-slate-600 font-bold">
+                        {envelopeType === 'answers'
+                          ? `أرقام التسجيل: من ${envFirstReg} إلى ${envLastReg}`
+                          : `${selectedRoomCandidates.length} للمترشحين + 01 احتياطية للأمانة`}
+                      </div>
+                    </div>
+
+                    <div className="text-sm md:text-base font-black">
+                      <span>{envelopeType === 'answers' ? 'عدد أوراق الإجابات المشمعة بالظرف:' : 'عدد نسخ مواضيع الإمتحان:'}</span>
                     </div>
                   </div>
                 </div>
