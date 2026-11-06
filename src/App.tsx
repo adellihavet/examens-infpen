@@ -169,7 +169,7 @@ export default function App() {
           : s
       )
     }));
-    addAuditLog('تحديث تأطير المركز', `تم تحديث اسم مدير المعهد (${settings.directorName}) وأعضاء أمانة المركز`, 'info');
+    addAuditLog('تحديث تأطير الإمتحان', `تم تحديث اسم مدير المعهد (${settings.directorName}) وأعضاء أمانة الإمتحان`, 'info');
   };
 
   return (
@@ -257,7 +257,7 @@ export default function App() {
             {INSTITUTION.name} • {INSTITUTION.service} © {new Date().getFullYear()}
           </p>
           <p className="font-mono-code text-[11px] text-slate-500">
-            نظام الامتحانات والمسابقات المهنية المستقل • بروتوكول ONEC • إصدار سطح المكتب (Offline SQLite)
+            نظام الامتحانات • بروتوكول• إصدار سطح المكتب (Offline SQLite)
           </p>
         </div>
       </footer>

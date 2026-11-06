@@ -79,18 +79,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // Director & Secretariat Staff State (Configurable in Dashboard - No arbitrary hardcoded name!)
   const initialDirectorName = dbState.institutionSettings?.directorName || currentSession?.presidentName || '';
-  const initialDirectorTitle = dbState.institutionSettings?.directorTitle || 'مدير المعهد ورئيس مركز الامتحان';
+  const initialDirectorTitle = dbState.institutionSettings?.directorTitle || 'مدير المعهد';
   const initialSecretariat = dbState.institutionSettings?.secretariatMembers || [
-    { id: 'sec_01', fullName: 'أ. لزهاري أحمد', role: 'مسؤول أمانة المركز والرقابة الإدارية' },
-    { id: 'sec_02', fullName: 'أ. قادري فاطمة', role: 'عضو أمانة المركز ومتابعة الأظرفة' },
-    { id: 'sec_03', fullName: 'أ. بلعيدي صالح', role: 'عضو أمانة المركز وتدقيق محاضر الحضور' }
+    { id: 'sec_01', fullName: 'أ. لزهاري أحمد', role: 'مسؤول أمانة' },
+    { id: 'sec_02', fullName: 'أ. قادري فاطمة', role: 'عضو أمانة' },
+    { id: 'sec_03', fullName: 'أ. بلعيدي صالح', role: 'عضو أمانة ' }
   ];
 
   const [directorNameInput, setDirectorNameInput] = useState<string>(initialDirectorName);
   const [directorTitleInput, setDirectorTitleInput] = useState<string>(initialDirectorTitle);
   const [secretariatList, setSecretariatList] = useState<SecretariatMember[]>(initialSecretariat);
   const [newMemberName, setNewMemberName] = useState<string>('');
-  const [newMemberRole, setNewMemberRole] = useState<string>('عضو أمانة المركز');
+  const [newMemberRole, setNewMemberRole] = useState<string>('عضو أمانة');
   const [staffSavedBanner, setStaffSavedBanner] = useState<boolean>(false);
 
   const handleAddSecretariatMember = () => {
@@ -98,15 +98,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const newMember: SecretariatMember = {
       id: `sec_${Date.now()}`,
       fullName: newMemberName.trim(),
-      role: newMemberRole.trim() || 'عضو أمانة المركز'
+      role: newMemberRole.trim() || 'عضو أمانة'
     };
     const updated = [...secretariatList, newMember];
     setSecretariatList(updated);
     setNewMemberName('');
     if (onUpdateInstitutionSettings) {
       onUpdateInstitutionSettings({
-        directorName: directorNameInput.trim() || 'مدير المعهد ورئيس مركز الامتحان',
-        directorTitle: directorTitleInput.trim() || 'مدير المعهد ورئيس مركز الامتحان',
+        directorName: directorNameInput.trim() || 'مدير المعهد',
+        directorTitle: directorTitleInput.trim() || 'مدير المعهد',
         secretariatMembers: updated
       });
       setStaffSavedBanner(true);
@@ -119,8 +119,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setSecretariatList(updated);
     if (onUpdateInstitutionSettings) {
       onUpdateInstitutionSettings({
-        directorName: directorNameInput.trim() || 'مدير المعهد ورئيس مركز الامتحان',
-        directorTitle: directorTitleInput.trim() || 'مدير المعهد ورئيس مركز الامتحان',
+        directorName: directorNameInput.trim() || 'مدير المعهد',
+        directorTitle: directorTitleInput.trim() || 'مدير المعهد',
         secretariatMembers: updated
       });
     }
@@ -130,8 +130,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     e.preventDefault();
     if (onUpdateInstitutionSettings) {
       onUpdateInstitutionSettings({
-        directorName: directorNameInput.trim() || 'مدير المعهد ورئيس مركز الامتحان',
-        directorTitle: directorTitleInput.trim() || 'مدير المعهد ورئيس مركز الامتحان',
+        directorName: directorNameInput.trim() || 'مدير المعهد',
+        directorTitle: directorTitleInput.trim() || 'مدير المعهد',
         secretariatMembers: secretariatList
       });
     }
@@ -209,7 +209,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     if (onUpdateInstitutionSettings && directorNameInput.trim()) {
       onUpdateInstitutionSettings({
         directorName: directorNameInput.trim(),
-        directorTitle: directorTitleInput.trim() || 'مدير المعهد ورئيس مركز الامتحان',
+        directorTitle: directorTitleInput.trim() || 'مدير المعهد',
         secretariatMembers: secretariatList
       });
     }
@@ -384,7 +384,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900 font-cairo">
-                معطيات السنة التكوينية ورزنامة دورة التخرج
+                معطيات السنة التكوينية ورزنامة الدورة 
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 تحديد السنة التكوينية، تاريخ بداية التكوين، وفترة وتوقيت سير الامتحانات الرسمية
@@ -434,7 +434,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {/* Session Full Title */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                تسمية دورة التخرج الرسمية:
+                تسمية الدورة الرسمية:
               </label>
               <input
                 type="text"
@@ -513,7 +513,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-800">
-                    رمز ولاية المعهد ونظام الترقيم الوزاري المعتمد (8 أرقام):
+                    رمز ولاية المعهد ونظام الترقيم (8 أرقام):
                   </label>
                   <p className="text-[11px] text-slate-600 mt-0.5">
                     الترقيم التلقائي: [رمز الولاية <span className="font-mono font-bold text-orange-700">{wilayaCodeInput.padStart(2, '0').slice(-2) || '03'}</span>] + [رمز الرتبة <span className="font-mono font-bold text-orange-700">{getRankNumericCode(currentSpecialtyId)}</span>] + [الرقم التسلسلي <span className="font-mono font-bold text-orange-700">0001</span>]
@@ -570,14 +570,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-slate-900 font-cairo">
-                  تأطير مركز الامتحان وإدارة المعهد (اسم المدير وأعضاء الأمانة)
+                  تأطير الامتحان (اسم المدير وأعضاء الأمانة)
                 </h2>
                 <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
                   البيانات الرسمية للمؤطرين
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                تحديد الاسم الرسمي المعتمد لمدير المعهد ورئيس المركز، وضبط أعضاء أمانة المركز وتكليفاتهم الإدارية بدقة.
+                تحديد الاسم الرسمي لمدير المعهد، وضبط أعضاء أمانة الإمتحان وتكليفاتهم الإدارية بدقة.
               </p>
             </div>
           </div>
@@ -595,13 +595,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <div className="bg-gradient-to-r from-slate-50 via-amber-50/40 to-slate-50 border border-slate-200 rounded-xl p-4">
             <h3 className="text-xs font-bold text-slate-800 mb-3 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-              <span>1. القيادة والإشراف الرسمي على مركز الامتحان:</span>
+              <span>1. القيادة والإشراف الرسمي على الامتحان:</span>
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  الاسم واللقب الرسمي لمدير المعهد (رئيس المركز):
+                  الاسم واللقب الرسمي لمدير المعهد:
                 </label>
                 <input
                   type="text"
@@ -618,14 +618,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  الصفة الرسمية في مركز الامتحان:
+                  الصفة الرسمية في أمانة الامتحان:
                 </label>
                 <input
                   type="text"
                   required
                   value={directorTitleInput}
                   onChange={(e) => setDirectorTitleInput(e.target.value)}
-                  placeholder="مدير المعهد ورئيس مركز الامتحان"
+                  placeholder="مدير المعهد"
                   className="w-full bg-white border border-slate-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-900 transition"
                 />
                 <span className="text-[10px] text-slate-500 mt-1 block">
@@ -640,7 +640,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
               <h3 className="text-xs font-bold text-slate-800 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                <span>2. أعضاء أمانة المركز ومصلحة تنظيم الامتحانات:</span>
+                <span>2. أعضاء الأمانة ومصلحة تنظيم الامتحانات:</span>
               </h3>
               <span className="text-[11px] text-slate-500 font-bold font-mono">
                 {secretariatList.length} أعضاء معتمدين
@@ -665,12 +665,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   onChange={(e) => setNewMemberRole(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900"
                 >
-                  <option value="مسؤول أمانة المركز والرقابة الإدارية">مسؤول أمانة المركز والرقابة الإدارية</option>
-                  <option value="عضو أمانة المركز ومتابعة الأظرفة">عضو أمانة المركز ومتابعة الأظرفة</option>
-                  <option value="عضو أمانة المركز وتدقيق محاضر الحضور">عضو أمانة المركز وتدقيق محاضر الحضور</option>
-                  <option value="عضو أمانة المركز وحفظ أوراق الإجابات">عضو أمانة المركز وحفظ أوراق الإجابات</option>
-                  <option value="نائب رئيس المركز">نائب رئيس المركز</option>
-                  <option value="ملاحظ ومفتش المتابعة البيداغوجية">ملاحظ ومفتش المتابعة البيداغوجية</option>
+                  <option value="مسؤول الأمانة ">مسؤول الأمانة</option>
+                  <option value="عضو أمانة ">عضو أمانة </option>
+                  <option value="عضو أمانة ">عضو أمانة </option>
+                  <option value="عضو أمانة ">عضو أمانة </option>
+                  <option value="نائب مدير المعهد">نائب مدير المعهد</option>
+                  <option value="ملاحظ ">ملاحظ </option>
                 </select>
               </div>
 
@@ -813,7 +813,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       المتكونون المسجلون: <strong className="font-mono text-slate-900">{rankCandidatesCount}</strong>
                     </span>
                     <span className="text-orange-700 font-semibold font-mono">
-                      {rank.modules.length} مقياساً
+                      {rank.modules.length} متكوناً
                     </span>
                   </div>
                 </button>
@@ -889,7 +889,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           className="bg-white p-5 rounded-2xl border border-slate-200 hover:border-orange-300 hover:shadow-md transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-semibold">المترشحون المسجلون</span>
+            <span className="text-xs font-semibold">المتكونون المسجلون</span>
             <Users className="w-5 h-5 text-orange-600 group-hover:scale-110 transition-transform" />
           </div>
           <div className="mt-3 flex items-baseline gap-1">

@@ -133,7 +133,7 @@ export const ExamProceedingsView: React.FC<ExamProceedingsViewProps> = ({
                 وثائق وسير الامتحانات والأظرفة الرسمية
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                محاضر سير الاختبارات، قصاصات الأظرفة المشمعة الكبرى، ومحضر فك الأختام بقاعات الامتحان.
+                محاضر سير الاختبارات، قصاصات الأظرفة الكبرى، ومحضر فك الأختام بقاعات الامتحان.
               </p>
             </div>
           </div>
@@ -176,7 +176,7 @@ export const ExamProceedingsView: React.FC<ExamProceedingsViewProps> = ({
           }`}
         >
           <Tag className="w-4 h-4" />
-          <span>2. قصاصات ولافتات أظرفة الامتحانات الكبرى (Étiquettes d'Enveloppes)</span>
+          <span>2. قصاصات ولافتات أظرفة الامتحانات (Étiquettes d'Enveloppes)</span>
         </button>
 
         <button
@@ -189,7 +189,7 @@ export const ExamProceedingsView: React.FC<ExamProceedingsViewProps> = ({
           }`}
         >
           <Key className="w-4 h-4" />
-          <span>3. محضر فك أختام المواضيع بالقاعة (PV d'Ouverture des Plis)</span>
+          <span>3. محضر فك أختام المواضيع (PV d'Ouverture des Plis)</span>
         </button>
       </div>
 
@@ -265,7 +265,7 @@ export const ExamProceedingsView: React.FC<ExamProceedingsViewProps> = ({
                 onChange={() => setEnvelopeType('subjects')}
                 className="text-orange-600 focus:ring-orange-500"
               />
-              <span className="font-semibold text-slate-800">ظرف مواضيع الاختبارات المشمع (Sujets d'Examen)</span>
+              <span className="font-semibold text-slate-800">ظرف مواضيع الاختبارات (Sujets d'Examen)</span>
             </label>
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input
@@ -275,7 +275,7 @@ export const ExamProceedingsView: React.FC<ExamProceedingsViewProps> = ({
                 onChange={() => setEnvelopeType('answers')}
                 className="text-orange-600 focus:ring-orange-500"
               />
-              <span className="font-semibold text-slate-800">ظرف أوراق الإجابات المغلقة والمشمعة (Copies d'Examen)</span>
+              <span className="font-semibold text-slate-800">ظرف أوراق الإجابات المغلقة (Copies d'Examen)</span>
             </label>
           </div>
         )}
@@ -350,7 +350,7 @@ export const ExamProceedingsView: React.FC<ExamProceedingsViewProps> = ({
                 {INSTITUTION.service}
               </p>
               <div className="inline-block bg-slate-900 text-white text-xs font-bold px-5 py-1 rounded-full mt-2 print-bold">
-                محضر سير وسيرورة اختبارات نهاية التكوين التأهيلي
+                محضر سير الاختبار 
               </div>
             </div>
 
@@ -374,7 +374,7 @@ export const ExamProceedingsView: React.FC<ExamProceedingsViewProps> = ({
                   <strong className="text-slate-950 font-bold">{selectedModule.titleAr}</strong> (معامل: <span className="font-mono">{selectedModule.coefficient}</span>)
                 </div>
                 <div>
-                  <span className="text-slate-600 font-semibold">قاعة الإجراء / المدرج:</span>{' '}
+                  <span className="text-slate-600 font-semibold">قاعة الإجراء :</span>{' '}
                   <strong className="text-slate-950 font-bold">{selectedRoom.name}</strong>
                 </div>
                 <div>
@@ -520,11 +520,11 @@ export const ExamProceedingsView: React.FC<ExamProceedingsViewProps> = ({
                   envelopeType === 'subjects' ? 'bg-orange-700' : 'bg-slate-900'
                 }`}>
                   {envelopeType === 'subjects' 
-                    ? 'ظرف مواضيع الامتحانات المشمع (CONFIDENTIEL - SUJETS D\'EXAMEN)' 
-                    : 'ظرف أوراق الإجابات المشمع والمغلق (COPIES D\'EXAMEN ANONYMAT)'}
+                    ? 'ظرف مواضيع الامتحانات (CONFIDENTIEL - SUJETS D\'EXAMEN)' 
+                    : 'ظرف أوراق الإجابات المغلق (COPIES D\'EXAMEN ANONYMAT)'}
                 </div>
                 <p className="text-[11px] text-slate-600 font-bold mt-1">
-                  يُحظر فض هذا الظرف أو المساس بأختامه إلا في المكان والزمان المحددين نظامياً
+                  يُحظر فض هذا الظرف أو المساس بأختامه إلا في المكان والزمان المحددين 
                 </p>
               </div>
 
@@ -567,7 +567,7 @@ export const ExamProceedingsView: React.FC<ExamProceedingsViewProps> = ({
 
                   <div className="col-span-2 pt-1 border-t-2 border-slate-400 grid grid-cols-3 gap-2 text-center bg-white p-2 rounded-lg border border-slate-300">
                     <div>
-                      <span className="text-slate-500 font-bold block text-[10px]">قاعة الإجراء / المدرج</span>
+                      <span className="text-slate-500 font-bold block text-[10px]">قاعة الإجراء</span>
                       <strong className="text-slate-950 text-sm font-black">{selectedRoom.name}</strong>
                     </div>
                     <div>
@@ -589,7 +589,7 @@ export const ExamProceedingsView: React.FC<ExamProceedingsViewProps> = ({
               {/* Status and Verification Box */}
               <div className="border border-slate-800 rounded-lg p-2.5 bg-amber-50/60 mb-4 text-[11px] text-slate-900 flex items-center justify-between">
                 <span className="font-bold">
-                  حالة الأختام والشمع الأحمر: <span className="text-emerald-800 font-black">محكمة وسليمة 100% ✓</span>
+                  حالة الأختام: <span className="text-emerald-800 font-black">محكمة وسليمة 100% ✓</span>
                 </span>
                 <span className="font-mono text-slate-600">
                   كود التتبع: ENV-{rankNumericCode}-{selectedModule.code}-{selectedRoom.id.slice(-4).toUpperCase()}
@@ -601,7 +601,7 @@ export const ExamProceedingsView: React.FC<ExamProceedingsViewProps> = ({
             <div className="border-t-2 border-slate-950 pt-3 grid grid-cols-2 gap-6 text-xs text-center">
               <div className="border border-slate-400 rounded-lg p-2 bg-slate-50/40">
                 <span className="font-bold text-slate-900 block text-[11px]">
-                  {envelopeType === 'subjects' ? 'تسليم الظرف من الأمانة العامة:' : 'استلام ظرف الإجابات في مصلحة الامتحانات:'}
+                  {envelopeType === 'subjects' ? 'تسليم الظرف من الأمانة' : 'استلام ظرف الإجابات في مصلحة الامتحانات:'}
                 </span>
                 <p className="text-[10px] text-slate-500 mt-0.5">الاسم، التوقيع وختم المصلحة</p>
                 <div className="h-12"></div>
@@ -647,8 +647,8 @@ export const ExamProceedingsView: React.FC<ExamProceedingsViewProps> = ({
             <div className="border border-slate-700 rounded-lg p-4 bg-slate-50/60 mb-6 text-xs leading-relaxed space-y-3">
               <p className="text-justify font-medium text-slate-900">
                 في يوم: <strong className="font-mono text-sm underline">{formatArabicDate(examDateInput)}</strong>، وعلى الساعة: <strong className="font-mono text-sm underline">{timeSlotString.split('-')[0].trim()}</strong>،
-                بقاعة الامتحان / المدرج: <strong className="text-slate-950 underline">{selectedRoom.name}</strong>، 
-                التابعة لمركز إجراء امتحانات نهاية التكوين بالمعهد الوطني لتكوين موظفي قطاع التربية الوطنية الشيخ زاهية حسين بالأغواط.
+                بقاعة الامتحان: <strong className="text-slate-950 underline">{selectedRoom.name}</strong>، 
+                التابعة للمعهد الوطني لتكوين موظفي قطاع التربية الوطنية الشيخ زاهية حسين بالأغواط.
               </p>
 
               <p className="text-justify font-medium text-slate-900">

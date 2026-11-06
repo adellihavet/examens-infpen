@@ -114,9 +114,9 @@ export const ExamConductView: React.FC<ExamConductViewProps> = ({
   }, [dbState.modules, currentSpecialtyId]);
 
   // Subtab navigation:
-  // 1. 'rooms_distribution': الرتب وتوزيع القاعات (سقف 20)
+  // 1. 'rooms_distribution': الرتب وتوزيع القاعات
   // 2. 'scheduler_proctors': الرزنامة وتوزيع الحراسة
-  // 3. 'attendance_sheets': قوائم الحضور والتوقيع (ميدانية + رصد إلكتروني)
+  // 3. 'attendance_sheets': قوائم الحضور والتوقيع
   // 4. 'exam_proceedings': محضر سير الاختبارات وفك الأختام
   // 5. 'envelope_labels': بطاقات الأظرفة الكبرى
   const [activeSubTab, setActiveSubTab] = useState<'rooms_distribution' | 'scheduler_proctors' | 'attendance_sheets' | 'exam_proceedings' | 'envelope_labels'>(initialSubTab);

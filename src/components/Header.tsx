@@ -33,9 +33,9 @@ export const Header: React.FC<HeaderProps> = ({
   const navItems = [
     { id: 'dashboard', label: 'لوحة القيادة' },
     { id: 'conduct', label: 'قسم الإجراء' },
-    { id: 'exam_maker', label: 'صياغة مواضيع الامتحان وبنك الأسئلة' },
-    { id: 'pedagogical_grades', label: 'التقييم البيداغوجي والمذكرات' },
-    { id: 'anonymat', label: 'التشفير ورصد النقاط المغفلة' },
+    { id: 'exam_maker', label: 'مواضيع الامتحان' },
+    { id: 'pedagogical_grades', label: 'المراقبة المستمرة والمذكرات' },
+    { id: 'anonymat', label: 'التشفير وحجز النقاط المغفلة' },
     { id: 'deliberation', label: 'المداولات ومحاضر التخرج' }
   ];
 
